@@ -3,20 +3,27 @@ name: Build ToastBannerSlider Executable
 on:
   workflow_dispatch:
     inputs:
-      architecture:
-        description: 'Target architecture'
+      build_amd64:
+        description: 'Build for AMD64 architecture'
         required: true
-        default: 'amd64'
-        type: choice
-        options:
-          - 'amd64'
-          - 'arm64'
-          - 'x86'
+        default: true
+        type: boolean
+      build_arm64:
+        description: 'Build for ARM64 architecture'
+        required: true
+        default: false
+        type: boolean
+      build_x86:
+        description: 'Build for x86 architecture'
+        required: true
+        default: false
+        type: boolean
   release:
     types: [published]
 
 jobs:
-  build:
+  build-amd64:
+    if: github.event.inputs.build_amd64 == 'true' || github.event_name == 'release'
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -27,11 +34,28 @@ jobs:
         with:
           python-version: '3.11'
           
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+            .\venv
+          key: python-deps-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install nuitka pillow
+          
+      - name: Cache Nuitka build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\Nuitka
+          key: nuitka-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            nuitka-cache-${{ runner.os }}-
           
       - name: Convert PNG to ICO
         run: |
@@ -45,35 +69,141 @@ jobs:
       
       - name: Build executable with Nuitka
         run: |
-          $arch = "${{ github.event.inputs.architecture || 'amd64' }}"
-          if ($arch -eq "arm64") {
-            python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-arm64.exe main.py
-          } elseif ($arch -eq "x86") {
-            python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-x86.exe main.py
-          } else {
-            python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-amd64.exe main.py
-          }
-      
-      - name: Set artifact name
-        run: |
-          $arch = "${{ github.event.inputs.architecture || 'amd64' }}"
-          if ($arch -eq "arm64") {
-            echo "ARTIFACT_NAME=ToastBannerSlider-arm64.exe" >> $env:GITHUB_ENV
-          } elseif ($arch -eq "x86") {
-            echo "ARTIFACT_NAME=ToastBannerSlider-x86.exe" >> $env:GITHUB_ENV
-          } else {
-            echo "ARTIFACT_NAME=ToastBannerSlider-amd64.exe" >> $env:GITHUB_ENV
-          }
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-amd64.exe --assume-yes-for-downloads main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: ToastBannerSlider-${{ github.event.inputs.architecture || 'amd64' }}-executable
-          path: ${{ env.ARTIFACT_NAME }}
+          name: ToastBannerSlider-amd64-executable
+          path: ToastBannerSlider-amd64.exe
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ env.ARTIFACT_NAME }}
+          files: ToastBannerSlider-amd64.exe
+
+  build-arm64:
+    if: github.event.inputs.build_arm64 == 'true' || github.event_name == 'release'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+            .\venv
+          key: python-deps-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nuitka pillow
+          
+      - name: Cache Nuitka build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\Nuitka
+          key: nuitka-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            nuitka-cache-${{ runner.os }}-
+          
+      - name: Convert PNG to ICO
+        run: |
+          python -c "
+          import PIL
+          from PIL import Image
+          import os
+          img = Image.open('notification_icon.png')
+          img.save('notification_icon.ico', format='ICO')
+          "
+      
+      - name: Build executable with Nuitka
+        run: |
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-arm64.exe --assume-yes-for-downloads main.py
+      
+      - name: Upload artifact (workflow dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToastBannerSlider-arm64-executable
+          path: ToastBannerSlider-arm64.exe
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ToastBannerSlider-arm64.exe
+
+  build-x86:
+    if: github.event.inputs.build_x86 == 'true' || github.event_name == 'release'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\pip\Cache
+            .\venv
+          key: python-deps-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nuitka pillow
+          
+      - name: Cache Nuitka build
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~\AppData\Local\Nuitka
+          key: nuitka-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            nuitka-cache-${{ runner.os }}-
+          
+      - name: Convert PNG to ICO
+        run: |
+          python -c "
+          import PIL
+          from PIL import Image
+          import os
+          img = Image.open('notification_icon.png')
+          img.save('notification_icon.ico', format='ICO')
+          "
+      
+      - name: Build executable with Nuitka
+        run: |
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-x86.exe --assume-yes-for-downloads main.py
+      
+      - name: Upload artifact (workflow dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ToastBannerSlider-x86-executable
+          path: ToastBannerSlider-x86.exe
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ToastBannerSlider-x86.exe
