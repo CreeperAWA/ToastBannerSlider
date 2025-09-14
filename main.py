@@ -200,7 +200,17 @@ class ToastBannerManager:
     
     def __init__(self):
         """初始化Toast横幅通知管理器"""
-        self.app = QApplication(sys.argv)
+        # 确保应用程序有一个唯一的标识符
+        if not QApplication.instance():
+            self.app = QApplication(sys.argv)
+        else:
+            self.app = QApplication.instance()
+            
+        # 设置应用程序属性
+        self.app.setQuitOnLastWindowClosed(False)
+        self.app.setApplicationName("ToastBannerSlider")
+        self.app.setApplicationDisplayName("Toast Banner Slider")
+        
         self.notification_window = None
         self.listener_thread = None
         self.last_message = None
@@ -289,6 +299,7 @@ class ToastBannerManager:
             
         # 创建托盘菜单
         self.tray_menu = QMenu()
+        self.tray_menu.setAttribute(Qt.WA_QuitOnClose, False)  # 防止菜单关闭时退出应用
         
         # 显示最后通知动作
         self.show_action = QAction("显示最后通知")
@@ -329,7 +340,7 @@ class ToastBannerManager:
         """
         # 只有双击托盘图标才显示最后通知
         # QSystemTrayIcon.DoubleClick 的值为 2
-        if reason == 2:
+        if reason == 2:  # 使用数值而不是属性以避免类型检查问题
             self.show_last_notification()
         # 单击不执行任何操作
     
@@ -433,6 +444,15 @@ def main():
     print("Toast 横幅通知系统")
     print("=" * 30)
     print("正在启动...")
+    
+    # 确保即使在无控制台模式下也能正确创建 QApplication
+    if not QApplication.instance():
+        app = QApplication(sys.argv)
+    else:
+        app = QApplication.instance()
+    
+    # 设置应用程序属性
+    app.setQuitOnLastWindowClosed(False)
     
     manager = ToastBannerManager()
     manager.run()

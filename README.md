@@ -100,7 +100,7 @@ python main.py
 
 ```bash
 pip install nuitka pillow
-python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --windows-disable-console main.py
+python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --windows-disable-console --windows-uac-admin main.py
 ```
 
 ## 许可证
