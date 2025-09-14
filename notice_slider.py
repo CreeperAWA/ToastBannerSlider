@@ -26,7 +26,7 @@ class NotificationWindow(QWidget):
         self.animation = None
         self.text_width = 0
         self.speed = config.get("scroll_speed", 200)  # 从配置中获取滚动速度 (px/s)
-        self.space = 150  # 消息右侧留白距离
+        self.space = config.get("right_spacing", 150)  # 从配置中获取右侧间隔距离
 
         # 初始化点击交互参数
         self.click_count = 0

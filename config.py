@@ -12,7 +12,8 @@ DEFAULT_CONFIG = {
     "notification_title": "911 呼唤群",
     "scroll_speed": 200,
     "scroll_count": 3,
-    "click_to_close": 3
+    "click_to_close": 3,
+    "right_spacing": 150
 }
 
 CONFIG_FILE = "config.json"

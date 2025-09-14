@@ -26,6 +26,12 @@ class ConfigDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("配置设置")
         self.setModal(True)
+        
+        # 设置窗口图标，与托盘图标一致
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         layout = QVBoxLayout()
         
         # 通知标题设置
@@ -40,7 +46,7 @@ class ConfigDialog(QDialog):
         speed_layout = QHBoxLayout()
         speed_layout.addWidget(QLabel("滚动速度 (px/s)："))
         self.speed_spin = QSpinBox()
-        self.speed_spin.setRange(1, 1000)
+        self.speed_spin.setRange(1, 50000)
         self.speed_spin.setValue(self.config.get("scroll_speed", 200))
         speed_layout.addWidget(self.speed_spin)
         layout.addLayout(speed_layout)
@@ -49,7 +55,7 @@ class ConfigDialog(QDialog):
         scroll_layout = QHBoxLayout()
         scroll_layout.addWidget(QLabel("滚动次数："))
         self.scroll_spin = QSpinBox()
-        self.scroll_spin.setRange(1, 20)
+        self.scroll_spin.setRange(1, 1000)
         self.scroll_spin.setValue(self.config.get("scroll_count", 3))
         scroll_layout.addWidget(self.scroll_spin)
         layout.addLayout(scroll_layout)
@@ -62,6 +68,15 @@ class ConfigDialog(QDialog):
         self.click_spin.setValue(self.config.get("click_to_close", 3))
         click_layout.addWidget(self.click_spin)
         layout.addLayout(click_layout)
+        
+        # 右侧间隔设置
+        spacing_layout = QHBoxLayout()
+        spacing_layout.addWidget(QLabel("右侧间隔 (px)："))
+        self.spacing_spin = QSpinBox()
+        self.spacing_spin.setRange(0, 5000)
+        self.spacing_spin.setValue(self.config.get("right_spacing", 150))
+        spacing_layout.addWidget(self.spacing_spin)
+        layout.addLayout(spacing_layout)
         
         # 按钮
         button_layout = QHBoxLayout()
@@ -81,6 +96,7 @@ class ConfigDialog(QDialog):
         self.config["scroll_speed"] = self.speed_spin.value()
         self.config["scroll_count"] = self.scroll_spin.value()
         self.config["click_to_close"] = self.click_spin.value()
+        self.config["right_spacing"] = self.spacing_spin.value()
         
         if save_config(self.config):
             self.accept()
@@ -99,6 +115,12 @@ class SendNotificationDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("发送通知")
         self.setModal(True)
+        
+        # 设置窗口图标，与托盘图标一致
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         layout = QVBoxLayout()
         
         # 通知内容输入
@@ -273,7 +295,8 @@ class ToastBannerManager:
     def icon_activated(self, reason):
         """托盘图标被激活"""
         # 只有双击托盘图标才显示最后通知
-        if reason == QSystemTrayIcon.DoubleClick:
+        # QSystemTrayIcon.DoubleClick 的值为 2
+        if reason == 2:
             self.show_last_notification()
         # 单击不执行任何操作
     
