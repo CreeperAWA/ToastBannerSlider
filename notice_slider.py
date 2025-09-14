@@ -131,10 +131,12 @@ class NotificationWindow(QWidget):
         self.message_text.setAttribute(Qt.WA_TranslucentBackground)
         self.message_text.setWordWrap(False)
         
-        # 关键修复：设置文本标签的高度与父容器一致
+        # 设置文本标签的高度与父容器一致
         self.message_text.setGeometry(0, 0, 1000, 128)  # 宽度先设大一些，后面会调整
         self.message_text.setMinimumHeight(128)
         self.message_text.setMaximumHeight(128)
+        # 隐藏消息文本，防止旧内容闪现
+        self.message_text.hide()
 
         # 添加到主布局
         layout.addWidget(label_widget)
@@ -169,6 +171,8 @@ class NotificationWindow(QWidget):
 
         # 重新设置文本标签的宽度以适应内容
         self.message_text.setFixedWidth(self.text_width)
+        # 在设置好位置和尺寸后再显示文本
+        self.message_text.show()
         
         # 计算滚动参数
         scroll_distance = screen_width + self.text_width + self.space
@@ -214,14 +218,19 @@ class NotificationWindow(QWidget):
 
         if self.click_count >= self.click_to_close:
             self.close_notification()
-        super().mousePressEvent(event)
+        # 不调用父类的mousePressEvent，避免可能的闪烁问题
+        # super().mousePressEvent(event)
 
     def close_notification(self):
         """启动关闭动画，实现窗口淡出效果"""
         logger.info("用户点击关闭通知")
+        # 如果已有淡出动画在运行，先停止它
+        if hasattr(self, 'fade_out') and self.fade_out.state() == QPropertyAnimation.Running:
+            self.fade_out.stop()
+            
         self.fade_out = QPropertyAnimation(self, b"windowOpacity")
         self.fade_out.setDuration(500)
-        self.fade_out.setStartValue(1)
+        self.fade_out.setStartValue(self.windowOpacity())
         self.fade_out.setEndValue(0)
         self.fade_out.finished.connect(self.close)
         self.fade_out.start()

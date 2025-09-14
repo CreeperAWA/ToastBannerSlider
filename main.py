@@ -331,7 +331,11 @@ class ToastBannerManager:
         return QIcon()  # 返回空图标
 
     def create_tray_icon(self):
-        """创建系统托盘图标"""
+        """创建系统托盘图标
+        
+        Returns:
+            bool: 创建成功返回True，否则返回False
+        """
         # 检查系统托盘是否可用
         if not QSystemTrayIcon.isSystemTrayAvailable():
             logger.warning("系统托盘不可用")

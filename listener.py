@@ -4,6 +4,8 @@
 通过访问Windows通知数据库来捕获通知，并将解析后的内容传递给回调函数。
 """
 
+# 配置loguru日志格式
+
 import sqlite3
 import base64
 import xml.etree.ElementTree as ET
@@ -20,8 +22,8 @@ logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
 logger.add("toast_banner_slider_listener.log", rotation="10 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
-# 定义回调函数，用于处理捕获的通知
 notification_callback = None
+"""用于处理捕获的通知的回调函数"""
 
 
 def set_notification_callback(callback):
