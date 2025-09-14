@@ -1,3 +1,9 @@
+"""Windows Toast通知监听模块
+
+该模块负责监听Windows系统的Toast通知，并解析特定标题的通知内容。
+通过访问Windows通知数据库来捕获通知，并将解析后的内容传递给回调函数。
+"""
+
 import sqlite3
 import base64
 import xml.etree.ElementTree as ET
@@ -17,14 +23,25 @@ logger.add("toast_banner_slider_listener.log", rotation="10 MB", format="{time:Y
 # 定义回调函数，用于处理捕获的通知
 notification_callback = None
 
+
 def set_notification_callback(callback):
-    """设置通知回调函数"""
+    """设置通知回调函数
+    
+    Args:
+        callback (function): 当捕获到通知时调用的回调函数
+    """
     global notification_callback
     notification_callback = callback
 
+
 def get_wpndatabase_path():
-    """
-    获取 Windows 通知数据库的路径
+    """获取 Windows 通知数据库的路径
+    
+    Returns:
+        str: Windows通知数据库的完整路径
+        
+    Raises:
+        EnvironmentError: 当无法找到LOCALAPPDATA环境变量时抛出
     """
     local_app_data = os.environ.get('LOCALAPPDATA')
     if not local_app_data:
@@ -33,9 +50,15 @@ def get_wpndatabase_path():
     db_path = os.path.join(local_app_data, 'Microsoft', 'Windows', 'Notifications', 'wpndatabase.db')
     return db_path
 
+
 def decode_payload(payload):
-    """
-    解码 base64 编码的通知载荷
+    """解码 base64 编码的通知载荷
+    
+    Args:
+        payload (str): base64编码的载荷字符串
+        
+    Returns:
+        str: 解码后的字符串，失败时返回None
     """
     try:
         decoded_bytes = base64.b64decode(payload)
@@ -45,9 +68,15 @@ def decode_payload(payload):
         logger.error(f"解码载荷时出错：{e}")
         return None
 
+
 def parse_notification_xml(xml_content):
-    """
-    解析通知 XML 内容，提取标题和内容
+    """解析通知 XML 内容，提取标题和内容
+    
+    Args:
+        xml_content (str): XML格式的通知内容
+        
+    Returns:
+        tuple: (标题, 内容)的元组，解析失败时返回(None, None)
     """
     try:
         root = ET.fromstring(xml_content)
@@ -63,12 +92,12 @@ def parse_notification_xml(xml_content):
         logger.error(f"解析 XML 时出错：{e}")
         return None, None
 
+
 def listen_for_notifications(check_interval=5):
-    """
-    监听指定标题的 Windows Toast 通知
+    """监听指定标题的 Windows Toast 通知
     
     Args:
-        check_interval: 检查间隔（秒）
+        check_interval (int): 检查通知数据库的间隔时间（秒）
     """
     db_path = get_wpndatabase_path()
     
@@ -173,6 +202,7 @@ def listen_for_notifications(check_interval=5):
             
     except KeyboardInterrupt:
         logger.info("停止监听")
+
 
 if __name__ == "__main__":
     listen_for_notifications()

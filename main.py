@@ -1,3 +1,9 @@
+"""Toast横幅通知系统主程序
+
+该模块整合了通知监听和显示功能，提供系统托盘图标和用户交互界面。
+负责管理整个应用程序的生命周期，包括配置管理、通知监听和显示等核心功能。
+"""
+
 import sys
 import threading
 import winreg
@@ -15,15 +21,22 @@ logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
 logger.add("toast_banner_slider.log", rotation="10 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
+
 class ConfigDialog(QDialog):
     """配置对话框"""
     
     def __init__(self, parent=None):
+        """初始化配置对话框
+        
+        Args:
+            parent (QWidget, optional): 父级窗口
+        """
         super().__init__(parent)
         self.config = load_config()
         self.init_ui()
         
     def init_ui(self):
+        """初始化用户界面"""
         self.setWindowTitle("配置设置")
         self.setModal(True)
         
@@ -104,15 +117,23 @@ class ConfigDialog(QDialog):
             # 如果保存失败，显示错误或采取其他措施
             pass
 
+
 class SendNotificationDialog(QDialog):
     """手动发送通知对话框"""
     
     def __init__(self, notification_callback=None, parent=None):
+        """初始化发送通知对话框
+        
+        Args:
+            notification_callback (function, optional): 通知回调函数
+            parent (QWidget, optional): 父级窗口
+        """
         super().__init__(parent)
         self.notification_callback = notification_callback
         self.init_ui()
         
     def init_ui(self):
+        """初始化用户界面"""
         self.setWindowTitle("发送通知")
         self.setModal(True)
         
@@ -155,11 +176,13 @@ class SendNotificationDialog(QDialog):
             # 如果消息为空，提示用户
             pass
 
+
 class NotificationListenerThread(QThread):
     """通知监听线程"""
     notification_received = pyqtSignal(str)
     
     def __init__(self):
+        """初始化通知监听线程"""
         super().__init__()
         set_notification_callback(self.notification_received.emit)
     
@@ -171,10 +194,12 @@ class NotificationListenerThread(QThread):
         except Exception as e:
             logger.error(f"监听通知时出错：{e}")
 
+
 class ToastBannerManager:
     """Toast 横幅通知管理器 - 整合监听和显示功能"""
     
     def __init__(self):
+        """初始化Toast横幅通知管理器"""
         self.app = QApplication(sys.argv)
         self.notification_window = None
         self.listener_thread = None
@@ -184,7 +209,11 @@ class ToastBannerManager:
         self.config = load_config()
         
     def show_notification(self, message):
-        """显示通知横幅"""
+        """显示通知横幅
+        
+        Args:
+            message (str): 要显示的通知消息
+        """
         # 保存最后一条消息
         self.last_message = message
         self.has_notifications = True
@@ -293,7 +322,11 @@ class ToastBannerManager:
         self.tray_icon.show()
         
     def icon_activated(self, reason):
-        """托盘图标被激活"""
+        """托盘图标被激活
+        
+        Args:
+            reason (QSystemTrayIcon.ActivationReason): 激活原因
+        """
         # 只有双击托盘图标才显示最后通知
         # QSystemTrayIcon.DoubleClick 的值为 2
         if reason == 2:
@@ -301,7 +334,11 @@ class ToastBannerManager:
         # 单击不执行任何操作
     
     def is_auto_startup_enabled(self):
-        """检查是否已设置开机自启"""
+        """检查是否已设置开机自启
+        
+        Returns:
+            bool: 已设置开机自启返回True，否则返回False
+        """
         try:
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
@@ -319,7 +356,11 @@ class ToastBannerManager:
             return False
     
     def toggle_auto_startup(self, checked):
-        """切换开机自启状态"""
+        """切换开机自启状态
+        
+        Args:
+            checked (bool): 是否启用开机自启
+        """
         try:
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
@@ -385,7 +426,9 @@ class ToastBannerManager:
         exit_code = self.app.exec_()
         sys.exit(exit_code)
 
+
 def main():
+    """主函数 - 程序入口点"""
     print("=" * 30)
     print("Toast 横幅通知系统")
     print("=" * 30)
@@ -393,6 +436,7 @@ def main():
     
     manager = ToastBannerManager()
     manager.run()
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,8 @@
+"""配置管理模块
+
+该模块负责加载和保存应用程序的配置信息。
+"""
+
 import json
 import os
 import sys
@@ -18,9 +23,12 @@ DEFAULT_CONFIG = {
 
 CONFIG_FILE = "config.json"
 
+
 def load_config():
-    """
-    加载配置文件，如果不存在则创建默认配置
+    """加载配置文件，如果不存在则创建默认配置
+    
+    Returns:
+        dict: 配置字典，包含所有配置项
     """
     if os.path.exists(CONFIG_FILE):
         try:
@@ -41,9 +49,15 @@ def load_config():
         logger.info("创建默认配置文件")
         return DEFAULT_CONFIG
 
+
 def save_config(config):
-    """
-    保存配置到文件
+    """保存配置到文件
+    
+    Args:
+        config (dict): 要保存的配置字典
+        
+    Returns:
+        bool: 保存成功返回True，失败返回False
     """
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:

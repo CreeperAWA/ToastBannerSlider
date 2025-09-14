@@ -1,3 +1,8 @@
+"""通知横幅显示模块
+
+该模块负责创建和显示顶部通知横幅窗口，实现文字滚动动画和用户交互功能。
+"""
+
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QHBoxLayout, 
                            QDesktopWidget, QSizePolicy)
@@ -11,10 +16,16 @@ from loguru import logger
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
 
+
 class NotificationWindow(QWidget):
     """顶部通知窗口 - 实现消息滚动显示和交互功能"""
     
     def __init__(self, message=None):
+        """初始化通知窗口
+        
+        Args:
+            message (str, optional): 要显示的消息内容
+        """
         super().__init__()
         # 加载配置
         config = load_config()
@@ -190,7 +201,11 @@ class NotificationWindow(QWidget):
             self.animation.start()
 
     def mousePressEvent(self, event):
-        """处理鼠标点击事件，支持多次点击关闭功能"""
+        """处理鼠标点击事件，支持多次点击关闭功能
+        
+        Args:
+            event (QMouseEvent): 鼠标点击事件
+        """
         self.click_count += 1
         logger.debug(f"通知窗口被点击，点击次数：{self.click_count}/{self.click_to_close}")
 
@@ -208,7 +223,9 @@ class NotificationWindow(QWidget):
         self.fade_out.finished.connect(self.close)
         self.fade_out.start()
 
+
 def main():
+    """主函数 - 用于测试通知窗口显示"""
     print("="*50)
     print("PyQt消息通知系统")
     print("功能：显示可交互的顶部消息通知横幅")
@@ -220,6 +237,7 @@ def main():
     window.show()
     
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

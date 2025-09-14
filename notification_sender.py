@@ -1,3 +1,9 @@
+"""通知发送模块
+
+该模块用于发送Windows Toast通知，主要用于测试目的。
+通过winsdk库创建并发送Toast通知到Windows通知中心。
+"""
+
 import winsdk.windows.ui.notifications as notifications
 import winsdk.windows.data.xml.dom as dom
 import sys
