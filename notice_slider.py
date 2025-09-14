@@ -31,7 +31,10 @@ class NotificationWindow(QWidget):
         config = load_config()
         
         # 初始化消息和滚动参数
-        self.message = message or "这是一条测试消息，用于验证通知显示功能是否正常工作。消息长度可能会变化，需要确保滚动效果正确。"
+        # 将多行文本替换为单行文本，用空格连接
+        initial_message = message or "这是一条测试消息，用于验证通知显示功能是否正常工作。消息长度可能会变化，需要确保滚动效果正确。"
+        self.message = " ".join(initial_message.splitlines())
+        
         self.scroll_count = 0
         self.max_scrolls = config.get("scroll_count", 3)  # 从配置中获取最大滚动次数
         self.animation = None

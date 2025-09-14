@@ -86,6 +86,9 @@ def parse_notification_xml(xml_content):
             if len(texts) >= 2:
                 title = texts[0].text
                 content = texts[1].text
+                # 将多行文本替换为单行文本，用空格连接
+                if content:
+                    content = " ".join(content.splitlines())
                 return title, content
         return None, None
     except Exception as e:

@@ -188,6 +188,8 @@ class SendNotificationDialog(QDialog):
         """发送通知"""
         message = self.message_edit.text().strip()
         if message:
+            # 将多行文本替换为单行文本，用空格连接
+            message = " ".join(message.splitlines())
             # 发送通知
             if self.notification_callback:
                 self.notification_callback(message)
