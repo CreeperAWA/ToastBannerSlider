@@ -10,7 +10,7 @@ import winreg
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QIcon
-from listener import listen_for_notifications, set_notification_callback
+from listener import listen_for_notifications, set_notification_callback, update_target_title
 from notice_slider import NotificationWindow
 from config import load_config, save_config
 import os
@@ -293,6 +293,8 @@ class ToastBannerManager:
         new_title = self.config.get("notification_title", "911 呼唤群")
         if old_title != new_title:
             logger.info(f"配置已更新，监听标题从 '{old_title}' 更改为 '{new_title}'")
+            # 通知监听器更新监听标题
+            update_target_title(new_title)
     
     def update_config(self):
         """更新配置并刷新托盘图标提示"""

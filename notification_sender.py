@@ -24,8 +24,8 @@ toast_xml = f"""
 <toast>
     <visual>
         <binding template="ToastGeneric">
-            <text>911 呼唤群</text>
-            <text>窗户卡子</text>
+            <text>912 窗户卡子群</text>
+            <text>我们班的窗户阻窗器不知道被哪个同学拔了，这个我已经告诉了后勤老师，你们班的我看也是这样，这个我已经告诉后勤老师了，这个还是非常的危险啊！</text>
         </binding>
     </visual>
 </toast>

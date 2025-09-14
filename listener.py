@@ -4,8 +4,6 @@
 通过访问Windows通知数据库来捕获通知，并将解析后的内容传递给回调函数。
 """
 
-# 配置loguru日志格式
-
 import sqlite3
 import base64
 import xml.etree.ElementTree as ET
@@ -25,6 +23,9 @@ logger.add("toast_banner_slider_listener.log", rotation="10 MB", format="{time:Y
 notification_callback = None
 """用于处理捕获的通知的回调函数"""
 
+# 存储监听器实例的引用
+_listener_instance = None
+
 
 def set_notification_callback(callback):
     """设置通知回调函数
@@ -34,6 +35,56 @@ def set_notification_callback(callback):
     """
     global notification_callback
     notification_callback = callback
+
+
+class NotificationListener:
+    """通知监听器类"""
+    
+    def __init__(self):
+        """初始化通知监听器"""
+        self.target_title = None
+        global _listener_instance
+        _listener_instance = self
+    
+    def set_target_title(self, title):
+        """设置监听的目标标题
+        
+        Args:
+            title (str): 要监听的目标标题
+        """
+        old_title = self.target_title
+        self.target_title = title
+        if old_title != title:
+            logger.info(f"监听标题已更新，从 '{old_title}' 更改为 '{title}'")
+    
+    def get_target_title(self):
+        """获取当前监听的目标标题
+        
+        Returns:
+            str: 当前监听的目标标题
+        """
+        return self.target_title
+
+
+def get_listener():
+    """获取监听器实例
+    
+    Returns:
+        NotificationListener: 监听器实例
+    """
+    global _listener_instance
+    return _listener_instance
+
+
+def update_target_title(new_title):
+    """更新监听的目标标题
+    
+    Args:
+        new_title (str): 新的目标标题
+    """
+    listener = get_listener()
+    if listener:
+        listener.set_target_title(new_title)
 
 
 def get_wpndatabase_path():
@@ -104,6 +155,9 @@ def listen_for_notifications(check_interval=5):
     Args:
         check_interval (int): 检查通知数据库的间隔时间（秒）
     """
+    # 创建监听器实例
+    listener = NotificationListener()
+    
     db_path = get_wpndatabase_path()
     
     if not os.path.exists(db_path):
@@ -114,6 +168,7 @@ def listen_for_notifications(check_interval=5):
     # 加载配置
     config = load_config()
     target_title = config.get("notification_title", "911 呼唤群")
+    listener.set_target_title(target_title)
     
     logger.info(f"开始监听标题为 '{target_title}' 的 Windows Toast 通知...")
     logger.info(f"数据库路径：{db_path}")
@@ -125,6 +180,9 @@ def listen_for_notifications(check_interval=5):
     try:
         while True:
             try:
+                # 使用监听器中的目标标题
+                target_title = listener.get_target_title()
+                
                 # 连接到数据库
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
