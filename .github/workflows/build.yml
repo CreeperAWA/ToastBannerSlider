@@ -21,6 +21,10 @@ on:
   release:
     types: [published]
 
+# 添加必要的权限声明
+permissions:
+  contents: write
+
 jobs:
   build-amd64:
     if: github.event.inputs.build_amd64 == 'true' || github.event_name == 'release'
