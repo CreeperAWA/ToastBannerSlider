@@ -17,14 +17,14 @@ logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 toast_manager = notifications.ToastNotificationManager
 
 # 使用应用程序 AUMID
-app_id = ""
+app_id = "QQ"
 
 # 创建通知的 XML 内容
 toast_xml = f"""
 <toast>
     <visual>
         <binding template="ToastGeneric">
-            <text>912 呼唤群</text>
+            <text>911 呼唤群</text>
             <text>窗户卡子</text>
         </binding>
     </visual>

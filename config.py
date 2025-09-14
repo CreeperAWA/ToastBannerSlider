@@ -21,7 +21,19 @@ DEFAULT_CONFIG = {
     "right_spacing": 150
 }
 
-CONFIG_FILE = "config.json"
+
+def get_config_path():
+    """获取配置文件的路径，兼容打包后的程序
+    
+    Returns:
+        str: 配置文件的路径
+    """
+    # 统一使用可执行文件所在目录
+    config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    
+    config_path = os.path.join(config_dir, "config.json")
+    logger.debug(f"配置文件路径: {config_path}")
+    return config_path
 
 
 def load_config():
@@ -30,6 +42,9 @@ def load_config():
     Returns:
         dict: 配置字典，包含所有配置项
     """
+    CONFIG_FILE = get_config_path()
+    logger.debug(f"尝试加载配置文件: {CONFIG_FILE}")
+    
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -38,7 +53,7 @@ def load_config():
             for key, value in DEFAULT_CONFIG.items():
                 if key not in config:
                     config[key] = value
-            logger.debug("配置文件加载成功")
+            logger.info("配置文件加载成功")
             return config
         except Exception as e:
             logger.error(f"读取配置文件时出错：{e}")
@@ -59,10 +74,18 @@ def save_config(config):
     Returns:
         bool: 保存成功返回True，失败返回False
     """
+    CONFIG_FILE = get_config_path()
+    logger.debug(f"尝试保存配置文件: {CONFIG_FILE}")
+    
     try:
+        # 确保目录存在
+        config_dir = os.path.dirname(CONFIG_FILE)
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+            
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
-        logger.info("配置已保存")
+        logger.info(f"配置已保存到: {CONFIG_FILE}")
         return True
     except Exception as e:
         logger.error(f"保存配置文件时出错：{e}")
