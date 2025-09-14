@@ -61,19 +61,10 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Convert PNG to ICO
-        run: |
-          python -c "
-          import PIL
-          from PIL import Image
-          import os
-          img = Image.open('notification_icon.png')
-          img.save('notification_icon.ico', format='ICO')
-          "
       
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-amd64.exe --windows-disable-console --assume-yes-for-downloads --windows-uac-admin main.py
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-amd64.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -135,7 +126,7 @@ jobs:
       
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-arm64.exe --windows-disable-console --assume-yes-for-downloads --windows-uac-admin main.py
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-arm64.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -197,7 +188,7 @@ jobs:
       
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-x86.exe --windows-disable-console --assume-yes-for-downloads --windows-uac-admin main.py
+          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-x86.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'

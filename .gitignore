@@ -154,3 +154,8 @@ yaml/
 result/
 
 config.json
+
+main.dist/
+main.build/
+
+main.exe

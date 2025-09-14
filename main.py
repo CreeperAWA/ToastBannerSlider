@@ -22,6 +22,26 @@ logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 logger.add("toast_banner_slider.log", rotation="10 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
 
+def get_resource_path(relative_path):
+    """获取资源文件的绝对路径，兼容打包后的程序
+    
+    Args:
+        relative_path (str): 相对路径
+        
+    Returns:
+        str: 资源文件的绝对路径
+    """
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller打包后的路径
+        return os.path.join(sys._MEIPASS, relative_path)
+    elif getattr(sys, 'frozen', False):
+        # Nuitka打包后的路径
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    else:
+        # 开发环境中的路径
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+
 class ConfigDialog(QDialog):
     """配置对话框"""
     
@@ -41,7 +61,7 @@ class ConfigDialog(QDialog):
         self.setModal(True)
         
         # 设置窗口图标，与托盘图标一致
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        icon_path = get_resource_path("notification_icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         
@@ -138,7 +158,7 @@ class SendNotificationDialog(QDialog):
         self.setModal(True)
         
         # 设置窗口图标，与托盘图标一致
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        icon_path = get_resource_path("notification_icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         
@@ -218,6 +238,9 @@ class ToastBannerManager:
         self.tray_icon = None
         self.config = load_config()
         
+        # 用于延时创建托盘图标的定时器
+        self.tray_timer = None
+        
     def show_notification(self, message):
         """显示通知横幅
         
@@ -276,14 +299,44 @@ class ToastBannerManager:
             target_title = self.config.get("notification_title", "911 呼唤群")
             self.tray_icon.setToolTip(f"正在监听：{target_title}")
     
+    def _load_icon(self, icon_name="notification_icon.png"):
+        """加载图标资源
+        
+        Args:
+            icon_name (str): 图标文件名
+            
+        Returns:
+            QIcon: 加载的图标对象，加载失败返回None
+        """
+        icon_path = get_resource_path(icon_name)
+        logger.debug(f"尝试加载图标：{icon_name}，路径：{icon_path}")
+        
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            if not icon.isNull():
+                return icon
+            logger.warning(f"图标文件无效：{icon_path}")
+        
+        # 如果指定图标加载失败，尝试加载默认图标
+        default_icon_path = get_resource_path("default_icon.png")
+        if os.path.exists(default_icon_path):
+            default_icon = QIcon(default_icon_path)
+            if not default_icon.isNull():
+                logger.info(f"使用默认图标替代：{default_icon_path}")
+                return default_icon
+        
+        logger.error("无法加载任何图标资源")
+        return QIcon()  # 返回空图标
+
     def create_tray_icon(self):
         """创建系统托盘图标"""
+        # 检查系统托盘是否可用
         if not QSystemTrayIcon.isSystemTrayAvailable():
             logger.warning("系统托盘不可用")
-            return
+            return False
             
         # 获取图标文件路径
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        icon_path = get_resource_path("notification_icon.png")
         
         # 创建系统托盘图标
         self.tray_icon = QSystemTrayIcon()
@@ -299,7 +352,6 @@ class ToastBannerManager:
             
         # 创建托盘菜单
         self.tray_menu = QMenu()
-        self.tray_menu.setAttribute(Qt.WA_QuitOnClose, False)  # 防止菜单关闭时退出应用
         
         # 显示最后通知动作
         self.show_action = QAction("显示最后通知")
@@ -330,7 +382,18 @@ class ToastBannerManager:
         
         self.tray_icon.setContextMenu(self.tray_menu)
         self.tray_icon.activated.connect(self.icon_activated)
+        
+        # 显示托盘图标
         self.tray_icon.show()
+        
+        # 检查托盘图标是否成功显示
+        if self.tray_icon.isVisible():
+            logger.info("系统托盘图标已成功显示")
+            return True
+        else:
+            logger.error("系统托盘图标显示失败")
+            return False
+            
         
     def icon_activated(self, reason):
         """托盘图标被激活
@@ -414,28 +477,36 @@ class ToastBannerManager:
             self.tray_icon.hide()
             logger.info("托盘图标已隐藏")
             
+        # 清理托盘图标
+        if self.tray_icon:
+            self.tray_icon = None
+            
         # 直接退出应用
         self.app.quit()
         logger.info("应用程序已退出")
         
     def run(self):
         """运行主程序"""
-        # 设置应用程序属性
-        self.app.setQuitOnLastWindowClosed(False)
-        
         # 创建并启动监听线程
         self.listener_thread = NotificationListenerThread()
         self.listener_thread.notification_received.connect(self.show_notification)
         self.listener_thread.start()
         logger.info("通知监听线程已启动")
         
-        # 创建系统托盘图标
-        self.create_tray_icon()
+        # 延迟创建系统托盘图标，确保GUI完全初始化
+        QTimer.singleShot(1000, self._delayed_create_tray_icon)
         
         # 运行 Qt 事件循环
         logger.info("Toast 横幅通知系统已启动")
         exit_code = self.app.exec_()
         sys.exit(exit_code)
+        
+    def _delayed_create_tray_icon(self):
+        """延时创建系统托盘图标"""
+        # 创建系统托盘图标
+        if not self.create_tray_icon():
+            logger.error("无法创建系统托盘图标，程序将退出")
+            self.app.quit()
 
 
 def main():
