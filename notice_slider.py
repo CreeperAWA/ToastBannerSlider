@@ -41,6 +41,13 @@ class NotificationWindow(QWidget):
         self.text_width = 0
         self.speed = config.get("scroll_speed", 200)  # 从配置中获取滚动速度 (px/s)
         self.space = config.get("right_spacing", 150)  # 从配置中获取右侧间隔距离
+        self.font_size = config.get("font_size", 48)   # 从配置中获取字体大小
+        self.left_margin = config.get("left_margin", 93)   # 从配置中获取左侧边距
+        self.right_margin = config.get("right_margin", 93) # 从配置中获取右侧边距
+        self.icon_scale = config.get("icon_scale", 1)      # 从配置中获取图标缩放倍数
+        self.label_offset_x = config.get("label_offset_x", 0)  # 从配置中获取标签文本x轴偏移
+        self.window_height = config.get("window_height", 128)  # 从配置中获取窗口高度
+        self.label_mask_width = config.get("label_mask_width", 305)  # 从配置中获取标签遮罩宽度
 
         # 初始化点击交互参数
         self.click_count = 0
@@ -60,11 +67,11 @@ class NotificationWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setGeometry(0, 50, screen_width, 128)
+        self.setGeometry(0, 50, screen_width, self.window_height)
 
         # 主容器 - 使用样式表实现渐变背景
         self.main_content = QWidget(self)
-        self.main_content.setGeometry(0, 0, screen_width, 128)
+        self.main_content.setGeometry(0, 0, screen_width, self.window_height)
         self.main_content.setStyleSheet("""
             QWidget {
                 background-color: rgba(0, 0, 0, 153);
@@ -74,12 +81,12 @@ class NotificationWindow(QWidget):
 
         # 布局
         layout = QHBoxLayout(self.main_content)
-        layout.setContentsMargins(93, 0, 93, 0)  # 左边距 93px，右边距 93px
+        layout.setContentsMargins(self.left_margin, 0, self.right_margin, 0)  # 使用配置的左右边距
         layout.setSpacing(0)
         
-        # 标签部分 - 固定宽度
+        # 标签部分 - 使用配置的宽度
         label_widget = QWidget()
-        label_widget.setFixedWidth(305)
+        label_widget.setFixedWidth(self.label_mask_width)
         label_widget.setStyleSheet("background: transparent;")
         
         label_layout = QHBoxLayout(label_widget)
@@ -89,22 +96,27 @@ class NotificationWindow(QWidget):
         # 喇叭图标
         icon_label = QLabel()
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
+        icon_size = 48 * self.icon_scale  # 根据配置的缩放倍数调整图标大小
         if os.path.exists(icon_path):
-            pixmap = QPixmap(icon_path).scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = QPixmap(icon_path).scaled(icon_size, icon_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             icon_label.setPixmap(pixmap)
         else:
             icon_label.setText("🔊")
-            icon_label.setFont(QFont("Arial", 32))
+            icon_label.setFont(QFont("Arial", 32 * self.icon_scale))
         icon_label.setStyleSheet("color: white; background: transparent;")
-        icon_label.setFixedSize(48, 48)
+        icon_label.setFixedSize(icon_size, icon_size)
         icon_label.setAlignment(Qt.AlignCenter)
 
         # 标签文本
         label_text = QLabel("消息提醒：")
-        label_text.setFont(QFont("Microsoft YaHei", 24))
+        label_text.setFont(QFont("Microsoft YaHei", self.font_size // 2))  # 根据配置的字体大小调整
         label_text.setStyleSheet("color: #3b9fdc; background: transparent;")
         label_text.setAlignment(Qt.AlignVCenter)
         label_text.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        
+        # 应用标签文本的x轴偏移
+        if self.label_offset_x != 0:
+            label_text.setStyleSheet(f"color: #3b9fdc; background: transparent; margin-left: {self.label_offset_x}px;")
 
         label_layout.addWidget(icon_label)
         label_layout.addWidget(label_text)
@@ -114,27 +126,27 @@ class NotificationWindow(QWidget):
         self.message_container = QWidget()
         self.message_container.setStyleSheet("background: transparent;")
         self.message_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.message_container.setFixedHeight(128)  # 设置固定高度
+        self.message_container.setFixedHeight(self.window_height)  # 使用配置的高度
 
         # 消息滑动区域
         self.message_slider_box = QWidget(self.message_container)
-        slider_width = screen_width - 93 - 305 - 93  # 计算可用宽度
-        self.message_slider_box.setGeometry(0, 0, slider_width, 128)  # 高度与窗口一致
+        slider_width = screen_width - self.left_margin - self.label_mask_width - self.right_margin  # 使用配置的宽度计算可用宽度
+        self.message_slider_box.setGeometry(0, 0, slider_width, self.window_height)  # 使用配置的高度
         self.message_slider_box.setStyleSheet("background: transparent;")
 
         # 消息文本
         self.message_text = QLabel(self.message)
         self.message_text.setParent(self.message_slider_box)
-        self.message_text.setFont(QFont("Microsoft YaHei", 24))
+        self.message_text.setFont(QFont("Microsoft YaHei", self.font_size // 2))  # 使用配置的字体大小
         self.message_text.setStyleSheet("color: white; background: transparent;")
         self.message_text.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.message_text.setAttribute(Qt.WA_TranslucentBackground)
         self.message_text.setWordWrap(False)
         
         # 设置文本标签的高度与父容器一致
-        self.message_text.setGeometry(0, 0, 1000, 128)  # 宽度先设大一些，后面会调整
-        self.message_text.setMinimumHeight(128)
-        self.message_text.setMaximumHeight(128)
+        self.message_text.setGeometry(0, 0, 1000, self.window_height)  # 使用配置的高度
+        self.message_text.setMinimumHeight(self.window_height)
+        self.message_text.setMaximumHeight(self.window_height)
         # 隐藏消息文本，防止旧内容闪现
         self.message_text.hide()
 
@@ -181,7 +193,7 @@ class NotificationWindow(QWidget):
         # 创建动画 - 垂直居中位置保持一致
         self.animation = QPropertyAnimation(self.message_text, b"pos")
         self.animation.setDuration(int(scroll_duration))
-        self.animation.setStartValue(QPoint(screen_width - 93 - 305 - 93, 0))  # 从右侧开始，y=0
+        self.animation.setStartValue(QPoint(screen_width - self.left_margin - self.label_mask_width - self.right_margin, 0))  # 使用配置的边距
         self.animation.setEndValue(QPoint(-(self.text_width + self.space), 0))  # 滚动到左侧，y=0
         self.animation.setEasingCurve(QEasingCurve.Linear)
         self.animation.finished.connect(self.animation_completed)
@@ -204,7 +216,7 @@ class NotificationWindow(QWidget):
         else:
             # 重置位置并重新开始动画
             screen_width = QDesktopWidget().screenGeometry().width()
-            self.message_text.move(screen_width - 93 - 305 - 93, 0)
+            self.message_text.move(screen_width - self.left_margin - self.label_mask_width - self.right_margin, 0)  # 使用配置的边距
             self.animation.start()
 
     def mousePressEvent(self, event):

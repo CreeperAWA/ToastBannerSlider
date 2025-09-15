@@ -18,7 +18,14 @@ DEFAULT_CONFIG = {
     "scroll_speed": 200,
     "scroll_count": 3,
     "click_to_close": 3,
-    "right_spacing": 150
+    "right_spacing": 150,
+    "font_size": 48,
+    "left_margin": 93,
+    "right_margin": 93,
+    "icon_scale": 1,           # 喇叭图标缩放倍数
+    "label_offset_x": 0,       # 消息提醒文本x轴偏移像素
+    "window_height": 128,      # 窗口高度
+    "label_mask_width": 305    # 标签遮罩宽度
 }
 
 

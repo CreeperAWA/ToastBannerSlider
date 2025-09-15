@@ -7,13 +7,14 @@
 import sys
 import threading
 import winreg
+import os
+import json
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox
-from PyQt5.QtCore import QThread, pyqtSignal, QTimer
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject, pyqtSlot
 from PyQt5.QtGui import QIcon
 from listener import listen_for_notifications, set_notification_callback, update_target_title
 from notice_slider import NotificationWindow
-from config import load_config, save_config
-import os
+from config import load_config, save_config, get_config_path
 from loguru import logger
 
 # 配置loguru日志格式
@@ -40,6 +41,34 @@ def get_resource_path(relative_path):
     else:
         # 开发环境中的路径
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+
+class ConfigWatcher(QObject):
+    """配置文件观察者"""
+    config_changed = pyqtSignal()
+    
+    def __init__(self):
+        super().__init__()
+        self.config_path = get_config_path()
+        self.last_mtime = self._get_mtime()
+        
+    def _get_mtime(self):
+        """获取配置文件的修改时间"""
+        try:
+            if os.path.exists(self.config_path):
+                return os.path.getmtime(self.config_path)
+        except Exception as e:
+            logger.warning(f"获取配置文件修改时间时出错：{e}")
+        return 0
+        
+    def check_config_change(self):
+        """检查配置文件是否发生变化"""
+        current_mtime = self._get_mtime()
+        if current_mtime > self.last_mtime:
+            self.last_mtime = current_mtime
+            self.config_changed.emit()
+            return True
+        return False
 
 
 class ConfigDialog(QDialog):
@@ -111,6 +140,69 @@ class ConfigDialog(QDialog):
         spacing_layout.addWidget(self.spacing_spin)
         layout.addLayout(spacing_layout)
         
+        # 字体大小设置
+        font_size_layout = QHBoxLayout()
+        font_size_layout.addWidget(QLabel("字体大小 (px)："))
+        self.font_size_spin = QSpinBox()
+        self.font_size_spin.setRange(1, 200)
+        self.font_size_spin.setValue(self.config.get("font_size", 48))
+        font_size_layout.addWidget(self.font_size_spin)
+        layout.addLayout(font_size_layout)
+        
+        # 左边距设置
+        left_margin_layout = QHBoxLayout()
+        left_margin_layout.addWidget(QLabel("左边距 (px)："))
+        self.left_margin_spin = QSpinBox()
+        self.left_margin_spin.setRange(0, 5000)
+        self.left_margin_spin.setValue(self.config.get("left_margin", 93))
+        left_margin_layout.addWidget(self.left_margin_spin)
+        layout.addLayout(left_margin_layout)
+        
+        # 右边距设置
+        right_margin_layout = QHBoxLayout()
+        right_margin_layout.addWidget(QLabel("右边距 (px)："))
+        self.right_margin_spin = QSpinBox()
+        self.right_margin_spin.setRange(0, 5000)
+        self.right_margin_spin.setValue(self.config.get("right_margin", 93))
+        right_margin_layout.addWidget(self.right_margin_spin)
+        layout.addLayout(right_margin_layout)
+        
+        # 图标缩放倍数设置
+        icon_scale_layout = QHBoxLayout()
+        icon_scale_layout.addWidget(QLabel("图标缩放倍数："))
+        self.icon_scale_spin = QSpinBox()
+        self.icon_scale_spin.setRange(1, 10)
+        self.icon_scale_spin.setValue(self.config.get("icon_scale", 1))
+        icon_scale_layout.addWidget(self.icon_scale_spin)
+        layout.addLayout(icon_scale_layout)
+        
+        # 标签文本X轴偏移设置
+        label_offset_layout = QHBoxLayout()
+        label_offset_layout.addWidget(QLabel("标签文本X轴偏移 (px)："))
+        self.label_offset_spin = QSpinBox()
+        self.label_offset_spin.setRange(-500, 500)
+        self.label_offset_spin.setValue(self.config.get("label_offset_x", 0))
+        label_offset_layout.addWidget(self.label_offset_spin)
+        layout.addLayout(label_offset_layout)
+        
+        # 窗口高度设置
+        window_height_layout = QHBoxLayout()
+        window_height_layout.addWidget(QLabel("窗口高度 (px)："))
+        self.window_height_spin = QSpinBox()
+        self.window_height_spin.setRange(50, 500)
+        self.window_height_spin.setValue(self.config.get("window_height", 128))
+        window_height_layout.addWidget(self.window_height_spin)
+        layout.addLayout(window_height_layout)
+        
+        # 标签遮罩宽度设置
+        label_mask_width_layout = QHBoxLayout()
+        label_mask_width_layout.addWidget(QLabel("标签遮罩宽度 (px)："))
+        self.label_mask_width_spin = QSpinBox()
+        self.label_mask_width_spin.setRange(100, 1000)
+        self.label_mask_width_spin.setValue(self.config.get("label_mask_width", 305))
+        label_mask_width_layout.addWidget(self.label_mask_width_spin)
+        layout.addLayout(label_mask_width_layout)
+        
         # 按钮
         button_layout = QHBoxLayout()
         save_btn = QPushButton("保存")
@@ -130,6 +222,13 @@ class ConfigDialog(QDialog):
         self.config["scroll_count"] = self.scroll_spin.value()
         self.config["click_to_close"] = self.click_spin.value()
         self.config["right_spacing"] = self.spacing_spin.value()
+        self.config["font_size"] = self.font_size_spin.value()
+        self.config["left_margin"] = self.left_margin_spin.value()
+        self.config["right_margin"] = self.right_margin_spin.value()
+        self.config["icon_scale"] = self.icon_scale_spin.value()
+        self.config["label_offset_x"] = self.label_offset_spin.value()
+        self.config["window_height"] = self.window_height_spin.value()
+        self.config["label_mask_width"] = self.label_mask_width_spin.value()
         
         if save_config(self.config):
             self.accept()
@@ -243,6 +342,15 @@ class ToastBannerManager:
         # 用于延时创建托盘图标的定时器
         self.tray_timer = None
         
+        # 配置观察者
+        self.config_watcher = ConfigWatcher()
+        self.config_watcher.config_changed.connect(self.update_config)
+        
+        # 添加配置文件监控定时器
+        self.config_check_timer = QTimer()
+        self.config_check_timer.timeout.connect(self.config_watcher.check_config_change)
+        self.config_check_timer.start(1000)  # 每秒检查一次配置更新
+        
     def show_notification(self, message):
         """显示通知横幅
         
@@ -298,6 +406,7 @@ class ToastBannerManager:
     
     def update_config(self):
         """更新配置并刷新托盘图标提示"""
+        logger.info("检测到配置文件更新，重新加载配置")
         self.config = load_config()
         if self.tray_icon:
             target_title = self.config.get("notification_title", "911 呼唤群")
@@ -488,6 +597,10 @@ class ToastBannerManager:
         # 清理托盘图标
         if self.tray_icon:
             self.tray_icon = None
+            
+        # 停止配置检查定时器
+        if self.config_check_timer:
+            self.config_check_timer.stop()
             
         # 直接退出应用
         self.app.quit()
