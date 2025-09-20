@@ -5,12 +5,11 @@
 """
 
 import sys
-import threading
 import winreg
 import os
-import json
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox
-from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject, pyqtSlot
+import time
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QCheckBox, QDoubleSpinBox
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject
 from PyQt5.QtGui import QIcon
 from listener import listen_for_notifications, set_notification_callback, update_target_title
 from notice_slider import NotificationWindow
@@ -107,9 +106,10 @@ class ConfigDialog(QDialog):
         # 滚动速度设置
         speed_layout = QHBoxLayout()
         speed_layout.addWidget(QLabel("滚动速度 (px/s)："))
-        self.speed_spin = QSpinBox()
+        self.speed_spin = QDoubleSpinBox()
         self.speed_spin.setRange(1, 50000)
-        self.speed_spin.setValue(self.config.get("scroll_speed", 200))
+        self.speed_spin.setValue(self.config.get("scroll_speed", 200.0))
+        self.speed_spin.setDecimals(1)
         speed_layout.addWidget(self.speed_spin)
         layout.addLayout(speed_layout)
         
@@ -143,9 +143,10 @@ class ConfigDialog(QDialog):
         # 字体大小设置
         font_size_layout = QHBoxLayout()
         font_size_layout.addWidget(QLabel("字体大小 (px)："))
-        self.font_size_spin = QSpinBox()
+        self.font_size_spin = QDoubleSpinBox()
         self.font_size_spin.setRange(1, 200)
-        self.font_size_spin.setValue(self.config.get("font_size", 48))
+        self.font_size_spin.setValue(self.config.get("font_size", 48.0))
+        self.font_size_spin.setDecimals(1)
         font_size_layout.addWidget(self.font_size_spin)
         layout.addLayout(font_size_layout)
         
@@ -170,9 +171,10 @@ class ConfigDialog(QDialog):
         # 图标缩放倍数设置
         icon_scale_layout = QHBoxLayout()
         icon_scale_layout.addWidget(QLabel("图标缩放倍数："))
-        self.icon_scale_spin = QSpinBox()
-        self.icon_scale_spin.setRange(1, 10)
-        self.icon_scale_spin.setValue(self.config.get("icon_scale", 1))
+        self.icon_scale_spin = QDoubleSpinBox()
+        self.icon_scale_spin.setRange(0.1, 10)
+        self.icon_scale_spin.setValue(self.config.get("icon_scale", 1.0))
+        self.icon_scale_spin.setDecimals(1)
         icon_scale_layout.addWidget(self.icon_scale_spin)
         layout.addLayout(icon_scale_layout)
         
@@ -203,6 +205,32 @@ class ConfigDialog(QDialog):
         label_mask_width_layout.addWidget(self.label_mask_width_spin)
         layout.addLayout(label_mask_width_layout)
         
+        # 横幅间隔设置
+        banner_spacing_layout = QHBoxLayout()
+        banner_spacing_layout.addWidget(QLabel("横幅间隔 (px)："))
+        self.banner_spacing_spin = QSpinBox()
+        self.banner_spacing_spin.setRange(0, 100)
+        self.banner_spacing_spin.setValue(self.config.get("banner_spacing", 10))
+        banner_spacing_layout.addWidget(self.banner_spacing_spin)
+        layout.addLayout(banner_spacing_layout)
+        
+        # 上移动画持续时间设置
+        shift_animation_layout = QHBoxLayout()
+        shift_animation_layout.addWidget(QLabel("上移动画时间 (ms)："))
+        self.shift_animation_spin = QSpinBox()
+        self.shift_animation_spin.setRange(50, 1000)
+        self.shift_animation_spin.setValue(self.config.get("shift_animation_duration", 100))
+        shift_animation_layout.addWidget(self.shift_animation_spin)
+        layout.addLayout(shift_animation_layout)
+        
+        # 忽略重复通知设置
+        ignore_duplicate_layout = QHBoxLayout()
+        ignore_duplicate_layout.addWidget(QLabel("忽略重复通知："))
+        self.ignore_duplicate_checkbox = QCheckBox("启用")
+        self.ignore_duplicate_checkbox.setChecked(self.config.get("ignore_duplicate", False))
+        ignore_duplicate_layout.addWidget(self.ignore_duplicate_checkbox)
+        layout.addLayout(ignore_duplicate_layout)
+        
         # 按钮
         button_layout = QHBoxLayout()
         save_btn = QPushButton("保存")
@@ -229,6 +257,9 @@ class ConfigDialog(QDialog):
         self.config["label_offset_x"] = self.label_offset_spin.value()
         self.config["window_height"] = self.window_height_spin.value()
         self.config["label_mask_width"] = self.label_mask_width_spin.value()
+        self.config["banner_spacing"] = self.banner_spacing_spin.value()
+        self.config["shift_animation_duration"] = self.shift_animation_spin.value()
+        self.config["ignore_duplicate"] = self.ignore_duplicate_checkbox.isChecked()
         
         if save_config(self.config):
             self.accept()
@@ -332,9 +363,9 @@ class ToastBannerManager:
         self.app.setApplicationName("ToastBannerSlider")
         self.app.setApplicationDisplayName("Toast Banner Slider")
         
-        self.notification_window = None
+        self.notification_windows = []  # 用于存储多个通知窗口
         self.listener_thread = None
-        self.last_message = None
+        self.message_history = []  # 存储消息历史记录（消息内容和时间戳）
         self.has_notifications = False
         self.tray_icon = None
         self.config = load_config()
@@ -357,32 +388,114 @@ class ToastBannerManager:
         Args:
             message (str): 要显示的通知消息
         """
-        # 保存最后一条消息
-        self.last_message = message
+        # 保存消息到历史记录
+        current_time = time.time()
+        self.message_history.append((message, current_time))
+        
+        # 清理5分钟前的历史记录
+        self.cleanup_message_history()
+        
         self.has_notifications = True
         
-        # 如果已有通知窗口，先关闭它
-        if self.notification_window:
-            self.notification_window.close()
+        # 检查是否启用了免打扰模式
+        if self.config.get("do_not_disturb", False):
+            logger.info(f"免打扰模式已启用，通知被拦截：{message}")
+            return
             
+        # 检查是否启用了忽略重复通知（5分钟内）
+        if self.config.get("ignore_duplicate", False):
+            # 检查是否在5分钟内有相同消息
+            if self.is_duplicate_message(message, current_time):
+                logger.info(f"忽略5分钟内的重复通知：{message}")
+                return
+        
+        # 计算新窗口的垂直位置
+        base_height = self.config.get("window_height", 128)
+        banner_spacing = self.config.get("banner_spacing", 10)
+        
+        # 计算已有窗口的总高度和间隔数
+        total_existing_height = len(self.notification_windows) * base_height
+        total_spacing = len(self.notification_windows) * banner_spacing
+        
         # 创建并显示新的通知窗口
-        self.notification_window = NotificationWindow(message)
-        self.notification_window.show()
+        window = NotificationWindow(message, vertical_offset=total_existing_height + total_spacing)
+        window.show()
+        self.notification_windows.append(window)
+        
+        # 连接窗口关闭信号，以便从列表中移除
+        window.window_closed.connect(self.remove_notification_window)
         
         # 记录日志
         logger.info(f"显示通知：{message}")
         
+    def cleanup_message_history(self):
+        """清理5分钟前的消息历史记录"""
+        current_time = time.time()
+        # 保留5分钟内的消息记录
+        self.message_history = [
+            (msg, timestamp) for msg, timestamp in self.message_history
+            if (current_time - timestamp) <= 300
+        ]
+        
+    def is_duplicate_message(self, message, current_time):
+        """检查是否为5分钟内的重复消息
+        
+        Args:
+            message (str): 要检查的消息
+            current_time (float): 当前时间戳
+            
+        Returns:
+            bool: 如果是5分钟内的重复消息返回True，否则返回False
+        """
+        # 检查历史记录中是否有相同的消息
+        for msg, timestamp in self.message_history[:-1]:  # 不包括当前消息
+            if (current_time - timestamp) <= 300 and msg == message:
+                return True
+        return False
+        
+    def remove_notification_window(self, window):
+        """从通知窗口列表中移除已关闭的窗口，并更新其他窗口的位置
+        
+        Args:
+            window (NotificationWindow): 已关闭的通知窗口
+        """
+        if window in self.notification_windows:
+            self.notification_windows.remove(window)
+            
+            # 更新剩余窗口的位置
+            base_height = self.config.get("window_height", 128)
+            banner_spacing = self.config.get("banner_spacing", 10)
+            animation_duration = self.config.get("shift_animation_duration", 100)
+            
+            for i, win in enumerate(self.notification_windows):
+                total_existing_height = i * base_height
+                total_spacing = i * banner_spacing
+                win.update_vertical_offset(total_existing_height + total_spacing, animation_duration)
+        
     def show_last_notification(self):
         """显示最后一条通知"""
-        if self.has_notifications and self.last_message:
-            # 如果已有通知窗口，先关闭它
-            if self.notification_window:
-                self.notification_window.close()
+        if not self.message_history:
+            logger.warning("没有可显示的通知")
+            return
+            
+        # 获取最后一条消息
+        last_message, _ = self.message_history[-1] if self.message_history else ("", 0)
+        
+        if self.has_notifications and last_message:
+            # 检查是否启用了免打扰模式
+            if self.config.get("do_not_disturb", False):
+                logger.info("免打扰模式已启用，无法显示最后通知")
+                return
                 
             # 创建并显示新的通知窗口
-            self.notification_window = NotificationWindow(self.last_message)
-            self.notification_window.show()
-            logger.info(f"显示最后一条通知：{self.last_message}")
+            window = NotificationWindow(last_message)
+            window.show()
+            self.notification_windows.append(window)
+            
+            # 连接窗口关闭信号，以便从列表中移除
+            window.window_closed.connect(self.remove_notification_window)
+            
+            logger.info(f"显示最后一条通知：{last_message}")
         else:
             logger.warning("没有可显示的通知")
     
@@ -411,6 +524,10 @@ class ToastBannerManager:
         if self.tray_icon:
             target_title = self.config.get("notification_title", "911 呼唤群")
             self.tray_icon.setToolTip(f"正在监听：{target_title}")
+            
+            # 更新免打扰菜单项状态
+            if hasattr(self, 'dnd_action'):
+                self.dnd_action.setChecked(self.config.get("do_not_disturb", False))
     
     def _load_icon(self, icon_name="notification_icon.png"):
         """加载图标资源
@@ -480,6 +597,13 @@ class ToastBannerManager:
         self.send_action.triggered.connect(self.show_send_notification_dialog)
         self.tray_menu.addAction(self.send_action)
         
+        # 免打扰模式开关
+        self.dnd_action = QAction("免打扰")
+        self.dnd_action.setCheckable(True)
+        self.dnd_action.setChecked(self.config.get("do_not_disturb", False))
+        self.dnd_action.triggered.connect(self.toggle_do_not_disturb)
+        self.tray_menu.addAction(self.dnd_action)
+        
         # 配置设置动作
         self.config_action = QAction("配置设置")
         self.config_action.triggered.connect(self.show_config_dialog)
@@ -511,6 +635,16 @@ class ToastBannerManager:
             logger.error("系统托盘图标显示失败")
             return False
             
+    def toggle_do_not_disturb(self, checked):
+        """切换免打扰模式
+        
+        Args:
+            checked (bool): 是否启用免打扰模式
+        """
+        # 更新配置
+        self.config["do_not_disturb"] = checked
+        save_config(self.config)
+        logger.info(f"免打扰模式已{'启用' if checked else '禁用'}")
         
     def icon_activated(self, reason):
         """托盘图标被激活
@@ -561,8 +695,14 @@ class ToastBannerManager:
             )
             
             if checked:
-                # 获取当前程序路径
-                app_path = os.path.abspath(sys.argv[0])
+                # 获取当前程序路径，使用与config.py相同的路径获取方式
+                # 确保在Nuitka打包后也能正确获取程序位置
+                if getattr(sys, 'frozen', False):
+                    # 打包后的程序，使用可执行文件所在目录
+                    app_path = sys.argv[0]
+                else:
+                    # 开发环境，使用脚本所在目录
+                    app_path = os.path.abspath(sys.argv[0])
                 winreg.SetValueEx(key, "ToastBannerSlider", 0, winreg.REG_SZ, app_path)
                 logger.info("已启用开机自启")
             else:
@@ -586,26 +726,30 @@ class ToastBannerManager:
             self.listener_thread.wait(500)  # 只等待 0.5 秒
             logger.info("通知监听线程已停止")
             
-        if self.notification_window:
-            self.notification_window.close()
-            logger.info("通知窗口已关闭")
+        # 关闭所有通知窗口
+        for window in self.notification_windows[:]:  # 使用副本避免在迭代时修改列表
+            try:
+                window.close()
+            except Exception as e:
+                logger.warning(f"关闭通知窗口时出错：{e}")
+        logger.info(f"已关闭 {len(self.notification_windows)} 个通知窗口")
+        
+        # 清空通知窗口列表
+        self.notification_windows.clear()
             
         if self.tray_icon:
             self.tray_icon.hide()
             logger.info("托盘图标已隐藏")
             
-        # 清理托盘图标
-        if self.tray_icon:
-            self.tray_icon = None
-            
         # 停止配置检查定时器
         if self.config_check_timer:
             self.config_check_timer.stop()
+            logger.info("配置检查定时器已停止")
             
-        # 直接退出应用
+        # 退出应用程序
         self.app.quit()
         logger.info("应用程序已退出")
-        
+
     def run(self):
         """运行主程序"""
         # 创建并启动监听线程

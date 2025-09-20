@@ -6,7 +6,7 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QHBoxLayout, 
                            QDesktopWidget, QSizePolicy)
-from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer
+from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer, pyqtSignal
 from PyQt5.QtGui import QFont, QPixmap
 import os
 from config import load_config
@@ -20,11 +20,15 @@ logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 class NotificationWindow(QWidget):
     """顶部通知窗口 - 实现消息滚动显示和交互功能"""
     
-    def __init__(self, message=None):
+    # 定义窗口关闭信号
+    window_closed = pyqtSignal(object)
+    
+    def __init__(self, message=None, vertical_offset=0):
         """初始化通知窗口
         
         Args:
             message (str, optional): 要显示的消息内容
+            vertical_offset (int): 垂直偏移量，用于多窗口显示
         """
         super().__init__()
         # 加载配置
@@ -39,15 +43,19 @@ class NotificationWindow(QWidget):
         self.max_scrolls = config.get("scroll_count", 3)  # 从配置中获取最大滚动次数
         self.animation = None
         self.text_width = 0
-        self.speed = config.get("scroll_speed", 200)  # 从配置中获取滚动速度 (px/s)
+        self.speed = config.get("scroll_speed", 200.0)  # 从配置中获取滚动速度 (px/s)
         self.space = config.get("right_spacing", 150)  # 从配置中获取右侧间隔距离
-        self.font_size = config.get("font_size", 48)   # 从配置中获取字体大小
+        self.font_size = config.get("font_size", 48.0)   # 从配置中获取字体大小
         self.left_margin = config.get("left_margin", 93)   # 从配置中获取左侧边距
         self.right_margin = config.get("right_margin", 93) # 从配置中获取右侧边距
-        self.icon_scale = config.get("icon_scale", 1)      # 从配置中获取图标缩放倍数
+        self.icon_scale = config.get("icon_scale", 1.0)      # 从配置中获取图标缩放倍数
         self.label_offset_x = config.get("label_offset_x", 0)  # 从配置中获取标签文本x轴偏移
         self.window_height = config.get("window_height", 128)  # 从配置中获取窗口高度
         self.label_mask_width = config.get("label_mask_width", 305)  # 从配置中获取标签遮罩宽度
+        self.vertical_offset = vertical_offset  # 垂直偏移量
+        self.vertical_animation = None  # 垂直位置动画
+        self.fade_in = None  # 淡入动画
+        self.fade_out = None  # 淡出动画
 
         # 初始化点击交互参数
         self.click_count = 0
@@ -67,7 +75,7 @@ class NotificationWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setGeometry(0, 50, screen_width, self.window_height)
+        self.setGeometry(0, 50 + self.vertical_offset, screen_width, self.window_height)
 
         # 主容器 - 使用样式表实现渐变背景
         self.main_content = QWidget(self)
@@ -96,20 +104,20 @@ class NotificationWindow(QWidget):
         # 喇叭图标
         icon_label = QLabel()
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
-        icon_size = 48 * self.icon_scale  # 根据配置的缩放倍数调整图标大小
+        icon_size = int(48 * self.icon_scale)  # 根据配置的缩放倍数调整图标大小
         if os.path.exists(icon_path):
             pixmap = QPixmap(icon_path).scaled(icon_size, icon_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             icon_label.setPixmap(pixmap)
         else:
             icon_label.setText("🔊")
-            icon_label.setFont(QFont("Arial", 32 * self.icon_scale))
+            icon_label.setFont(QFont("Arial", int(32 * self.icon_scale)))
         icon_label.setStyleSheet("color: white; background: transparent;")
         icon_label.setFixedSize(icon_size, icon_size)
         icon_label.setAlignment(Qt.AlignCenter)
 
         # 标签文本
         label_text = QLabel("消息提醒：")
-        label_text.setFont(QFont("Microsoft YaHei", self.font_size // 2))  # 根据配置的字体大小调整
+        label_text.setFont(QFont("Microsoft YaHei", int(self.font_size // 2)))  # 根据配置的字体大小调整
         label_text.setStyleSheet("color: #3b9fdc; background: transparent;")
         label_text.setAlignment(Qt.AlignVCenter)
         label_text.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -137,7 +145,7 @@ class NotificationWindow(QWidget):
         # 消息文本
         self.message_text = QLabel(self.message)
         self.message_text.setParent(self.message_slider_box)
-        self.message_text.setFont(QFont("Microsoft YaHei", self.font_size // 2))  # 使用配置的字体大小
+        self.message_text.setFont(QFont("Microsoft YaHei", int(self.font_size // 2)))  # 使用配置的字体大小
         self.message_text.setStyleSheet("color: white; background: transparent;")
         self.message_text.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.message_text.setAttribute(Qt.WA_TranslucentBackground)
@@ -191,6 +199,10 @@ class NotificationWindow(QWidget):
         scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
 
         # 创建动画 - 垂直居中位置保持一致
+        if self.animation:
+            self.animation.stop()
+            self.animation.deleteLater()
+            
         self.animation = QPropertyAnimation(self.message_text, b"pos")
         self.animation.setDuration(int(scroll_duration))
         self.animation.setStartValue(QPoint(screen_width - self.left_margin - self.label_mask_width - self.right_margin, 0))  # 使用配置的边距
@@ -199,13 +211,48 @@ class NotificationWindow(QWidget):
         self.animation.finished.connect(self.animation_completed)
         self.animation.start()
         logger.debug(f"启动滚动动画，持续时间：{int(scroll_duration)} 毫秒")
-
+        
+    def update_vertical_offset(self, offset, animation_duration=100):
+        """更新窗口的垂直偏移量，带动画效果
+        
+        Args:
+            offset (int): 新的垂直偏移量
+            animation_duration (int): 动画持续时间（毫秒）
+        """
+        # 如果已有垂直动画在运行，先停止它
+        if self.vertical_animation and self.vertical_animation.state() == QPropertyAnimation.Running:
+            self.vertical_animation.stop()
+            self.vertical_animation.deleteLater()
+            
+        # 创建垂直位置动画
+        self.vertical_animation = QPropertyAnimation(self, b"geometry")
+        self.vertical_animation.setDuration(animation_duration)  # 使用配置的动画时间
+        self.vertical_animation.setEasingCurve(QEasingCurve.OutCubic)
+        
+        # 获取当前屏幕宽度
+        screen_width = QDesktopWidget().screenGeometry().width()
+        
+        # 设置起始和结束几何位置
+        current_geometry = self.geometry()
+        target_geometry = current_geometry.adjusted(0, offset - self.vertical_offset, 0, offset - self.vertical_offset)
+        
+        self.vertical_animation.setStartValue(current_geometry)
+        self.vertical_animation.setEndValue(target_geometry)
+        self.vertical_animation.start()
+        
+        # 更新垂直偏移量
+        self.vertical_offset = offset
+        
     def animation_completed(self):
         """处理动画完成后的逻辑，包括循环滚动或关闭窗口"""
         self.scroll_count += 1
         logger.debug(f"动画完成，当前滚动次数：{self.scroll_count}/{self.max_scrolls}")
         if self.scroll_count >= self.max_scrolls:
             # 淡出并关闭
+            if self.fade_out:
+                self.fade_out.stop()
+                self.fade_out.deleteLater()
+                
             self.fade_out = QPropertyAnimation(self, b"windowOpacity")
             self.fade_out.setDuration(500)
             self.fade_out.setStartValue(1)
@@ -237,8 +284,9 @@ class NotificationWindow(QWidget):
         """启动关闭动画，实现窗口淡出效果"""
         logger.info("用户点击关闭通知")
         # 如果已有淡出动画在运行，先停止它
-        if hasattr(self, 'fade_out') and self.fade_out.state() == QPropertyAnimation.Running:
+        if self.fade_out and self.fade_out.state() == QPropertyAnimation.Running:
             self.fade_out.stop()
+            self.fade_out.deleteLater()
             
         self.fade_out = QPropertyAnimation(self, b"windowOpacity")
         self.fade_out.setDuration(500)
@@ -246,6 +294,33 @@ class NotificationWindow(QWidget):
         self.fade_out.setEndValue(0)
         self.fade_out.finished.connect(self.close)
         self.fade_out.start()
+        
+    def closeEvent(self, event):
+        """处理窗口关闭事件"""
+        # 停止所有动画并释放资源
+        if self.animation:
+            self.animation.stop()
+            self.animation.deleteLater()
+            
+        if self.vertical_animation:
+            self.vertical_animation.stop()
+            self.vertical_animation.deleteLater()
+            
+        if self.fade_in:
+            self.fade_in.stop()
+            self.fade_in.deleteLater()
+            
+        if self.fade_out:
+            self.fade_out.stop()
+            self.fade_out.deleteLater()
+        
+        # 发出窗口关闭信号
+        self.window_closed.emit(self)
+        super().closeEvent(event)
+
+    def __del__(self):
+        """析构函数，确保资源被释放"""
+        logger.debug("NotificationWindow 对象被销毁")
 
 
 def main():

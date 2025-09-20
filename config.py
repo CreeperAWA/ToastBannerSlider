@@ -15,17 +15,20 @@ logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 # 默认配置
 DEFAULT_CONFIG = {
     "notification_title": "911 呼唤群",
-    "scroll_speed": 200,
-    "scroll_count": 3,
-    "click_to_close": 3,
-    "right_spacing": 150,
-    "font_size": 48,
-    "left_margin": 93,
-    "right_margin": 93,
-    "icon_scale": 1,           # 喇叭图标缩放倍数
-    "label_offset_x": 0,       # 消息提醒文本x轴偏移像素
-    "window_height": 128,      # 窗口高度
-    "label_mask_width": 305    # 标签遮罩宽度
+    "scroll_speed": 200.0,        # 滚动速度可以是浮点数
+    "scroll_count": 3,            # 滚动次数为整数
+    "click_to_close": 3,          # 点击关闭次数为整数
+    "right_spacing": 150,         # 右侧间隔为像素值，整数
+    "font_size": 48.0,            # 字体大小可以是浮点数
+    "left_margin": 93,            # 左边距为像素值，整数
+    "right_margin": 93,           # 右边距为像素值，整数
+    "icon_scale": 1.0,            # 图标缩放倍数为浮点数
+    "label_offset_x": 0,          # 标签文本x轴偏移为像素值，整数
+    "window_height": 128,         # 窗口高度为像素值，整数
+    "label_mask_width": 305,      # 标签遮罩宽度为像素值，整数
+    "banner_spacing": 10,         # 横幅间隔为像素值，整数
+    "ignore_duplicate": False,    # 是否忽略重复通知
+    "shift_animation_duration": 100  # 通知上移动画持续时间（毫秒），整数
 }
 
 
