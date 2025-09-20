@@ -18,13 +18,12 @@ from loguru import logger
 # 配置loguru日志格式
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
-logger.add("toast_banner_slider_listener.log", rotation="10 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
+logger.add("toast_banner_slider_listener.log", rotation="5 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
-notification_callback = None
-"""用于处理捕获的通知的回调函数"""
 
-# 存储监听器实例的引用
-_listener_instance = None
+# 全局变量用于存储通知回调函数和目标标题
+_notification_callback = None
+_target_title = None
 
 
 def set_notification_callback(callback):
@@ -33,8 +32,8 @@ def set_notification_callback(callback):
     Args:
         callback (function): 当捕获到通知时调用的回调函数
     """
-    global notification_callback
-    notification_callback = callback
+    global _notification_callback
+    _notification_callback = callback
 
 
 class NotificationListener:

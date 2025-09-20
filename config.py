@@ -10,7 +10,11 @@ from loguru import logger
 
 # 配置loguru日志格式
 logger.remove()
+# 添加控制台输出
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
+# 添加文件输出，每个日志文件最大5MB，自动轮转
+logger.add("app.log", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
+           level="INFO", rotation="5 MB")
 
 # 默认配置
 DEFAULT_CONFIG = {

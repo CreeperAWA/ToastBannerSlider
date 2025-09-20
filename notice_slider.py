@@ -15,6 +15,7 @@ from loguru import logger
 # 配置loguru日志格式
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
+logger.add("toast_banner_slider_slider.log", rotation="5 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
 
 class NotificationWindow(QWidget):
