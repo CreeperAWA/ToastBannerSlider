@@ -458,7 +458,7 @@ class ToastBannerManager:
                 win.update_vertical_offset(total_existing_height + total_spacing, animation_duration)
         
     def show_last_notification(self):
-        """显示最后一条通知"""
+        """显示最后一条通知，将其添加到现有通知队列中"""
         if not self.message_history:
             logger.warning("没有可显示的通知")
             return
@@ -472,15 +472,8 @@ class ToastBannerManager:
                 logger.info("免打扰模式已启用，无法显示最后通知")
                 return
                 
-            # 创建并显示新的通知窗口
-            window = NotificationWindow(last_message)
-            window.show()
-            self.notification_windows.append(window)
-            
-            # 连接窗口关闭信号，以便从列表中移除
-            window.window_closed.connect(self.remove_notification_window)
-            
-            logger.info(f"显示最后一条通知：{last_message}")
+            # 将最后一条消息作为新通知显示，添加到现有通知队列中
+            self.show_notification(last_message)
         else:
             logger.warning("没有可显示的通知")
     
