@@ -18,12 +18,14 @@ from loguru import logger
 # 配置loguru日志格式
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
-logger.add("toast_banner_slider_listener.log", rotation="5 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
+logger.add("toast_banner_slider_listener.log", rotation="5 MB", 
+          format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
 
 # 全局变量用于存储通知回调函数和目标标题
 _notification_callback = None
 _target_title = None
+_listener_instance = None
 
 
 def set_notification_callback(callback):
@@ -241,8 +243,8 @@ def listen_for_notifications(check_interval=5):
                         logger.info(f"收到通知 - 标题：{title}，内容：{content}")
                         
                         # 如果设置了回调函数，则调用它
-                        if notification_callback:
-                            notification_callback(content)
+                        if _notification_callback:
+                            _notification_callback(content)
                         else:
                             # 否则输出 JSON 格式，便于其他程序解析
                             print(json.dumps(result, ensure_ascii=False))

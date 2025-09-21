@@ -8,38 +8,21 @@ import sys
 import winreg
 import os
 import time
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QCheckBox, QDoubleSpinBox
-from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject
-from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QApplication, QSystemTrayIcon, QMenu, QAction, 
+                           QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
+                           QPushButton, QSpinBox, QCheckBox, QDoubleSpinBox)
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject, Qt
 from listener import listen_for_notifications, set_notification_callback, update_target_title
 from notice_slider import NotificationWindow
 from config import load_config, save_config, get_config_path
+from icon_manager import load_icon
 from loguru import logger
 
 # 配置loguru日志格式
 logger.remove()
 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
-logger.add("toast_banner_slider.log", rotation="5 MB", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
-
-
-def get_resource_path(relative_path):
-    """获取资源文件的绝对路径，兼容打包后的程序
-    
-    Args:
-        relative_path (str): 相对路径
-        
-    Returns:
-        str: 资源文件的绝对路径
-    """
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller打包后的路径
-        return os.path.join(sys._MEIPASS, relative_path)
-    elif getattr(sys, 'frozen', False):
-        # Nuitka打包后的路径
-        return os.path.join(os.path.dirname(sys.executable), relative_path)
-    else:
-        # 开发环境中的路径
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+logger.add("toast_banner_slider.log", rotation="5 MB", 
+          format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
 
 class ConfigWatcher(QObject):
@@ -52,7 +35,11 @@ class ConfigWatcher(QObject):
         self.last_mtime = self._get_mtime()
         
     def _get_mtime(self):
-        """获取配置文件的修改时间"""
+        """获取配置文件的修改时间
+        
+        Returns:
+            float: 配置文件的修改时间戳，出错时返回0
+        """
         try:
             if os.path.exists(self.config_path):
                 return os.path.getmtime(self.config_path)
@@ -66,8 +53,6 @@ class ConfigWatcher(QObject):
         if current_mtime > self.last_mtime:
             self.last_mtime = current_mtime
             self.config_changed.emit()
-            return True
-        return False
 
 
 class ConfigDialog(QDialog):
@@ -89,9 +74,7 @@ class ConfigDialog(QDialog):
         self.setModal(True)
         
         # 设置窗口图标，与托盘图标一致
-        icon_path = get_resource_path("notification_icon.png")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+        self.setWindowIcon(load_icon("notification_icon.png"))
         
         layout = QVBoxLayout()
         
@@ -288,9 +271,7 @@ class SendNotificationDialog(QDialog):
         self.setModal(True)
         
         # 设置窗口图标，与托盘图标一致
-        icon_path = get_resource_path("notification_icon.png")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+        self.setWindowIcon(load_icon("notification_icon.png"))
         
         layout = QVBoxLayout()
         
@@ -362,6 +343,10 @@ class ToastBannerManager:
         self.app.setQuitOnLastWindowClosed(False)
         self.app.setApplicationName("ToastBannerSlider")
         self.app.setApplicationDisplayName("Toast Banner Slider")
+        
+        # 启用高DPI支持
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
         
         self.notification_windows = []  # 用于存储多个通知窗口
         self.listener_thread = None
@@ -529,35 +514,6 @@ class ToastBannerManager:
             if hasattr(self, 'dnd_action'):
                 self.dnd_action.setChecked(self.config.get("do_not_disturb", False))
     
-    def _load_icon(self, icon_name="notification_icon.png"):
-        """加载图标资源
-        
-        Args:
-            icon_name (str): 图标文件名
-            
-        Returns:
-            QIcon: 加载的图标对象，加载失败返回None
-        """
-        icon_path = get_resource_path(icon_name)
-        logger.debug(f"尝试加载图标：{icon_name}，路径：{icon_path}")
-        
-        if os.path.exists(icon_path):
-            icon = QIcon(icon_path)
-            if not icon.isNull():
-                return icon
-            logger.warning(f"图标文件无效：{icon_path}")
-        
-        # 如果指定图标加载失败，尝试加载默认图标
-        default_icon_path = get_resource_path("default_icon.png")
-        if os.path.exists(default_icon_path):
-            default_icon = QIcon(default_icon_path)
-            if not default_icon.isNull():
-                logger.info(f"使用默认图标替代：{default_icon_path}")
-                return default_icon
-        
-        logger.error("无法加载任何图标资源")
-        return QIcon()  # 返回空图标
-
     def create_tray_icon(self):
         """创建系统托盘图标
         
@@ -569,15 +525,9 @@ class ToastBannerManager:
             logger.warning("系统托盘不可用")
             return False
             
-        # 获取图标文件路径
-        icon_path = get_resource_path("notification_icon.png")
-        
         # 创建系统托盘图标
         self.tray_icon = QSystemTrayIcon()
-        if os.path.exists(icon_path):
-            self.tray_icon.setIcon(QIcon(icon_path))
-        else:
-            logger.warning(f"未找到图标文件：{icon_path}")
+        self.tray_icon.setIcon(load_icon("notification_icon.png"))
             
         # 设置悬停提示
         target_title = self.config.get("notification_title", "911 呼唤群")
@@ -653,8 +603,7 @@ class ToastBannerManager:
             reason (QSystemTrayIcon.ActivationReason): 激活原因
         """
         # 只有双击托盘图标才显示最后通知
-        # QSystemTrayIcon.DoubleClick 的值为 2
-        if reason == 2:  # 使用数值而不是属性以避免类型检查问题
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_last_notification()
         # 单击不执行任何操作
     
@@ -789,6 +738,9 @@ def main():
     
     # 设置应用程序属性
     app.setQuitOnLastWindowClosed(False)
+    # 启用高DPI支持
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
     
     manager = ToastBannerManager()
     manager.run()
