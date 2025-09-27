@@ -1,2 +1,4 @@
-PyQt5
+PySide6
 loguru
+winsdk
+pywin32

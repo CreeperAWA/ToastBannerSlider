@@ -15,6 +15,12 @@ from datetime import datetime
 from config import load_config
 from loguru import logger
 
+# 配置loguru日志格式
+logger.remove()
+logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
+logger.add("toast_banner_slider.log", rotation="5 MB", 
+          format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
+
 # 全局变量用于存储通知回调函数和目标标题
 _notification_callback = None
 _target_title = None
@@ -143,11 +149,12 @@ def parse_notification_xml(xml_content):
         return None, None
 
 
-def listen_for_notifications(check_interval=5):
+def listen_for_notifications(check_interval=5, stop_check=None):
     """监听指定标题的 Windows Toast 通知
     
     Args:
         check_interval (int): 检查通知数据库的间隔时间（秒）
+        stop_check (callable, optional): 检查是否应该停止的函数
     """
     # 创建监听器实例
     listener = NotificationListener()
@@ -166,13 +173,17 @@ def listen_for_notifications(check_interval=5):
     
     logger.info(f"开始监听标题为 '{target_title}' 的 Windows Toast 通知...")
     logger.info(f"数据库路径：{db_path}")
-    logger.info("按 Ctrl+C 停止监听")
     
     # 用于避免重复通知的集合
     processed_notifications = set()
     
     try:
         while True:
+            # 检查是否应该停止
+            if stop_check and stop_check():
+                logger.info("收到停止信号，退出监听循环")
+                break
+                
             try:
                 # 使用监听器中的目标标题
                 target_title = listener.get_target_title()

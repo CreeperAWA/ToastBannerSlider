@@ -10,11 +10,24 @@ from loguru import logger
 
 # 配置loguru日志格式
 logger.remove()
-# 添加控制台输出
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="INFO")
-# 添加文件输出，每个日志文件最大5MB，自动轮转
-logger.add("app.log", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-           level="INFO", rotation="5 MB")
+
+def setup_logger(config=None):
+    """根据配置设置日志记录器
+    
+    Args:
+        config (dict, optional): 配置字典
+        
+    Returns:
+        str: 日志级别
+    """
+    # 如果没有提供配置，则加载配置
+    if config is None:
+        config = load_config()
+    
+    # 获取日志等级，默认为INFO
+    log_level = config.get("log_level", "INFO")
+    
+    return log_level
 
 # 默认配置
 DEFAULT_CONFIG = {
@@ -32,7 +45,11 @@ DEFAULT_CONFIG = {
     "label_mask_width": 305,      # 标签遮罩宽度为像素值，整数
     "banner_spacing": 10,         # 横幅间隔为像素值，整数
     "ignore_duplicate": False,    # 是否忽略重复通知
-    "shift_animation_duration": 100  # 通知上移动画持续时间（毫秒），整数
+    "shift_animation_duration": 100,       # 通知上移动画持续时间 (ms) - 整数
+    "do_not_disturb": False,               # 免打扰模式 - 布尔值
+    "fade_animation_duration": 1500,       # 淡入淡出动画持续时间 (ms) - 整数
+    "base_vertical_offset": 0,             # 基础垂直偏移量 - 整数
+    "log_level": "INFO"                    # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
 }
 
 
@@ -68,14 +85,20 @@ def load_config():
                 if key not in config:
                     config[key] = value
             logger.info("配置文件加载成功")
+            # 设置日志记录器
+            setup_logger(config)
             return config
         except Exception as e:
             logger.error(f"读取配置文件时出错：{e}")
+            # 即使配置读取失败，也要设置日志记录器
+            setup_logger(DEFAULT_CONFIG)
             return DEFAULT_CONFIG
     else:
         # 如果配置文件不存在，创建默认配置文件
         save_config(DEFAULT_CONFIG)
         logger.info("创建默认配置文件")
+        # 设置日志记录器
+        setup_logger(DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
 
@@ -99,7 +122,9 @@ def save_config(config):
             
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
-        logger.info(f"配置已保存到: {CONFIG_FILE}")
+        logger.info("配置已保存")
+        # 重新设置日志记录器（包括日志等级）
+        setup_logger(config)
         return True
     except Exception as e:
         logger.error(f"保存配置文件时出错：{e}")

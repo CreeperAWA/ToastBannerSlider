@@ -61,10 +61,21 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      
+      - name: Set version environment variable
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $VERSION = "${{ github.event.release.tag_name }}".Replace('v', '')
+            echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=$VERSION" >> $env:GITHUB_ENV
+          } else {
+            echo "VERSION=1.0.0" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=1.0.0" >> $env:GITHUB_ENV
+          }
+          echo "AUTHOR=CreeperAWA" >> $env:GITHUB_ENV
+          
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-amd64.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --file-description="这是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。" --output-filename="ToastBannerSlider-amd64.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -124,9 +135,21 @@ jobs:
           img.save('notification_icon.ico', format='ICO')
           "
       
+      - name: Set version environment variable
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $VERSION = "${{ github.event.release.tag_name }}".Replace('v', '')
+            echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=$VERSION" >> $env:GITHUB_ENV
+          } else {
+            echo "VERSION=1.0.0" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=1.0.0" >> $env:GITHUB_ENV
+          }
+          echo "AUTHOR=CreeperAWA" >> $env:GITHUB_ENV
+          
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-arm64.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --file-description="这是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。" --output-filename="ToastBannerSlider-arm64.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -186,9 +209,21 @@ jobs:
           img.save('notification_icon.ico', format='ICO')
           "
       
+      - name: Set version environment variable
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            $VERSION = "${{ github.event.release.tag_name }}".Replace('v', '')
+            echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=$VERSION" >> $env:GITHUB_ENV
+          } else {
+            echo "VERSION=1.0.0" >> $env:GITHUB_ENV
+            echo "RELEASE_VERSION=1.0.0" >> $env:GITHUB_ENV
+          }
+          echo "AUTHOR=CreeperAWA" >> $env:GITHUB_ENV
+          
       - name: Build executable with Nuitka
         run: |
-          echo "Yes" | python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --output-filename=ToastBannerSlider-x86.exe --windows-disable-console --assume-yes-for-downloads --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --file-description="这是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。" --output-filename="ToastBannerSlider-x86.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'

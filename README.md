@@ -24,8 +24,10 @@ pip install -r requirements.txt
 ```
 
 依赖库：
-- PyQt5: 用于构建图形用户界面
+- PySide6: 用于构建图形用户界面
 - loguru: 用于日志记录
+- winsdk: 用于访问Windows通知数据库
+- pywin32: 用于Windows特定功能
 
 ## 使用方法
 
@@ -54,14 +56,14 @@ python main.py
 在配置设置中可以调整以下参数：
 
 1. **通知标题**: 要监听的通知标题（默认为"911 呼唤群"）
-2. **滚动速度**: 文字滚动速度，单位为像素/秒（默认为200）
-3. **滚动次数**: 文字滚动循环次数（默认为3次）
-4. **点击关闭次数**: 点击通知横幅关闭所需的次数（默认为3次）
+2. **滚动速度**: 文字滚动速度，单位为像素/秒（默认为 200px/s）
+3. **滚动次数**: 文字滚动循环次数（默认为 3 次）
+4. **点击关闭次数**: 点击通知横幅关闭所需的次数（默认为 3 次）
 
 ### 通知横幅交互
 
-- 点击通知横幅指定次数（默认3次）可关闭通知
-- 通知横幅会在显示指定次数（默认3次）后自动消失
+- 点击通知横幅指定次数（默认 3 次）可关闭通知
+- 通知横幅会在显示指定次数（默认 3 次）后自动消失
 
 ## 技术架构
 
@@ -94,14 +96,15 @@ python main.py
 4. 主程序创建通知横幅窗口并显示通知内容
 5. 通知横幅具有滚动动画和点击交互功能
 
-## 编译为可执行文件
+## 构建可执行文件
 
-使用 Nuitka 编译：
+使用以下命令构建可执行文件：
 
 ```bash
-pip install nuitka pillow
-python -m nuitka --onefile --windows-icon-from-ico=notification_icon.ico --enable-plugin=pyqt5 --windows-disable-console --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved." --file-description="这是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。"
 ```
+
+GitHub Actions CI/CD 自动编译时会自动从环境变量获取版本信息。
 
 ## 许可证
 

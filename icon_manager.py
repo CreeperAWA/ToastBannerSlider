@@ -5,7 +5,7 @@
 
 import os
 import sys
-from PyQt5.QtGui import QIcon
+from PySide6.QtGui import QIcon
 from loguru import logger
 
 
