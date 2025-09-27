@@ -101,7 +101,7 @@ python main.py
 使用以下命令构建可执行文件：
 
 ```bash
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved." --file-description="这是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。"
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved."
 ```
 
 GitHub Actions CI/CD 自动编译时会自动从环境变量获取版本信息。
