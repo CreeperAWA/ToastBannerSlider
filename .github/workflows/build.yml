@@ -75,7 +75,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-amd64.exe"
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-amd64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -149,7 +149,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-arm64.exe"
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-arm64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -223,7 +223,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-x86.exe"
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --copyright="© 2025 ${{ env.AUTHOR }}. All rights reserved." --output-filename="ToastBannerSlider-x86.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'

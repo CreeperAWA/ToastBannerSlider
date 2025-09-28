@@ -101,7 +101,7 @@ python main.py
 使用以下命令构建可执行文件：
 
 ```bash
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved."
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
 ```
 
 GitHub Actions CI/CD 自动编译时会自动从环境变量获取版本信息。
