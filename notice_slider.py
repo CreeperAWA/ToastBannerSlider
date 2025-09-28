@@ -11,11 +11,8 @@ from PySide6.QtGui import QFont
 from config import load_config
 from loguru import logger
 
-# 配置loguru日志格式
+# 移除默认的日志处理器，避免重复记录
 logger.remove()
-logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
-logger.add("toast_banner_slider.log", rotation="5 MB", 
-          format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level="DEBUG")
 
 
 class NotificationWindow(QWidget):

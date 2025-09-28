@@ -9,6 +9,9 @@ from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import Qt
 from loguru import logger
 
+# 移除默认的日志处理器，避免重复记录
+logger.remove()
+
 
 def get_resource_path(relative_path):
     """获取资源文件的绝对路径，兼容打包后的程序

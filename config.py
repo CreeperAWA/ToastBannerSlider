@@ -11,6 +11,7 @@ from loguru import logger
 # 配置loguru日志格式
 logger.remove()
 
+
 def setup_logger(config=None):
     """根据配置设置日志记录器
     
@@ -27,7 +28,22 @@ def setup_logger(config=None):
     # 获取日志等级，默认为INFO
     log_level = config.get("log_level", "INFO")
     
+    # 移除现有的所有处理器
+    logger.remove()
+    
+    # 添加标准错误输出处理器
+    logger.add(sys.stderr, 
+              format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
+              level="DEBUG")
+    
+    # 添加文件输出处理器，5MB轮转
+    logger.add("toast_banner_slider.log", 
+              rotation="5 MB", 
+              format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
+              level=log_level)
+    
     return log_level
+
 
 # 默认配置
 DEFAULT_CONFIG = {
@@ -50,6 +66,7 @@ DEFAULT_CONFIG = {
     "fade_animation_duration": 1500,       # 淡入淡出动画持续时间 (ms) - 整数
     "base_vertical_offset": 50,            # 基础垂直偏移量 - 整数
     "log_level": "INFO",                   # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+    "scroll_mode": "always",               # 滚动模式 - 字符串 (always, auto)
     "custom_icon": None                    # 自定义图标文件名
 }
 
