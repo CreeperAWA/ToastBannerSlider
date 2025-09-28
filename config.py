@@ -48,7 +48,7 @@ DEFAULT_CONFIG = {
     "shift_animation_duration": 100,       # 通知上移动画持续时间 (ms) - 整数
     "do_not_disturb": False,               # 免打扰模式 - 布尔值
     "fade_animation_duration": 1500,       # 淡入淡出动画持续时间 (ms) - 整数
-    "base_vertical_offset": 0,             # 基础垂直偏移量 - 整数
+    "base_vertical_offset": 50,            # 基础垂直偏移量 - 整数
     "log_level": "INFO"                    # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
 }
 
