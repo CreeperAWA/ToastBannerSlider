@@ -517,11 +517,12 @@ class ToastBannerManager(QObject):
         
         logger.info("主程序UI初始化完成")
         
-    def show_notification(self, message):
+    def show_notification(self, message, skip_duplicate_check=False):
         """显示通知横幅
         
         Args:
             message (str): 要显示的通知消息
+            skip_duplicate_check (bool): 是否跳过重复消息检查，默认为False
         """
         logger.debug(f"show_notification 开始处理消息: {message}")
         
@@ -549,7 +550,8 @@ class ToastBannerManager(QObject):
                 return
                 
             # 检查是否启用了忽略重复通知（5分钟内）
-            if self.config.get("ignore_duplicate", False):
+            # 如果skip_duplicate_check为True，则跳过重复消息检查
+            if not skip_duplicate_check and self.config.get("ignore_duplicate", False):
                 # 检查是否在5分钟内有相同消息
                 if self.is_duplicate_message(message, current_time):
                     logger.info(f"忽略5分钟内的重复通知：{message}")
@@ -661,7 +663,8 @@ class ToastBannerManager(QObject):
                 return
                 
             # 将最后一条消息作为新通知显示，添加到现有通知队列中
-            self.show_notification(last_message)
+            # 传递skip_duplicate_check=True参数以跳过重复消息检查
+            self.show_notification(last_message, skip_duplicate_check=True)
         else:
             logger.warning("没有可显示的通知")
     
