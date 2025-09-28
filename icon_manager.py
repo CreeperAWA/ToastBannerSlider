@@ -39,16 +39,11 @@ def get_icons_dir():
     Returns:
         str: 图标目录的绝对路径
     """
-    # 获取可执行文件所在目录
-    if getattr(sys, 'frozen', False):
-        # 打包后的程序
-        base_path = os.path.dirname(sys.executable)
-    else:
-        # 开发环境
-        base_path = os.path.dirname(os.path.abspath(__file__))
+    # 使用与配置模块相同的方式获取基础目录，避免Nuitka单文件模式下保存到临时文件夹
+    config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         
     # 构建图标目录路径
-    icons_dir = os.path.join(base_path, "icons")
+    icons_dir = os.path.join(config_dir, "icons")
     
     # 确保图标目录存在
     if not os.path.exists(icons_dir):
@@ -57,7 +52,7 @@ def get_icons_dir():
             logger.info(f"创建图标目录: {icons_dir}")
         except Exception as e:
             logger.error(f"创建图标目录失败: {e}")
-            return base_path  # 返回基础路径作为备选
+            return config_dir  # 返回基础路径作为备选
             
     logger.debug(f"图标目录路径: {icons_dir}")
     return icons_dir
