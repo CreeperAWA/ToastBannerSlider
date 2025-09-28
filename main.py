@@ -1,4 +1,4 @@
-"""Toast横幅通知系统主程序
+"""ToastBannerSlider主程序
 
 该模块整合了通知监听和显示功能，提供系统托盘图标和用户交互界面。
 负责管理整个应用程序的生命周期，包括配置管理、通知监听和显示等核心功能。
@@ -7,17 +7,19 @@
 import sys
 import os
 import time
+import uuid
+import shutil
 from win32com.client import Dispatch
 from PySide6.QtWidgets import (QApplication, QSystemTrayIcon, QMenu, 
                            QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                            QPushButton, QSpinBox, QCheckBox, QDoubleSpinBox, QMessageBox,
-                           QComboBox)
-from PySide6.QtGui import QAction
+                           QComboBox, QFileDialog)
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import QThread, Signal, QTimer, QObject, Qt
 from listener import listen_for_notifications, set_notification_callback, update_target_title, get_listener
 from notice_slider import NotificationWindow
 from config import load_config, save_config, get_config_path
-from icon_manager import load_icon
+from icon_manager import load_icon, get_icons_dir
 from loguru import logger
 
 # 配置loguru日志格式
@@ -94,6 +96,26 @@ class ConfigDialog(QDialog):
         self.title_edit.setText(self.config.get("notification_title", "911 呼唤群"))
         title_layout.addWidget(self.title_edit)
         layout.addLayout(title_layout)
+        
+        # 自定义图标设置
+        icon_layout = QHBoxLayout()
+        icon_layout.addWidget(QLabel("程序图标："))
+        self.icon_button = QPushButton("选择图标文件")
+        self.icon_button.clicked.connect(self.select_icon)
+        icon_layout.addWidget(self.icon_button)
+        
+        self.icon_preview = QLabel()
+        self.icon_preview.setFixedSize(32, 32)
+        self.icon_preview.setStyleSheet("border: 1px solid gray;")
+        icon_layout.addWidget(self.icon_preview)
+        
+        self.clear_icon_button = QPushButton("清除")
+        self.clear_icon_button.clicked.connect(self.clear_custom_icon)
+        icon_layout.addWidget(self.clear_icon_button)
+        layout.addLayout(icon_layout)
+        
+        # 显示当前图标
+        self.update_icon_preview()
         
         # 滚动速度设置
         speed_layout = QHBoxLayout()
@@ -310,48 +332,118 @@ class ConfigDialog(QDialog):
         event.accept()  # 接受关闭事件
         logger.debug("ConfigDialog closeEvent执行完成")
 
+    def update_icon_preview(self):
+        """更新图标预览"""
+        custom_icon = self.config.get("custom_icon")
+        if custom_icon:
+            icon_path = os.path.join(get_icons_dir(), custom_icon)
+            if os.path.exists(icon_path):
+                pixmap = QPixmap(icon_path)
+                if not pixmap.isNull():
+                    self.icon_preview.setPixmap(pixmap.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                    return
+                    
+        # 如果没有自定义图标或者加载失败，显示默认图标
+        default_icon_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "notification_icon.png")
+        if os.path.exists(default_icon_path):
+            pixmap = QPixmap(default_icon_path)
+            if not pixmap.isNull():
+                self.icon_preview.setPixmap(pixmap.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                return
+                
+        self.icon_preview.clear()
+        
+    def select_icon(self):
+        """选择自定义图标文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "选择图标文件", 
+            "", 
+            "图标文件 (*.png *.jpg *.jpeg *.ico *.bmp);;所有文件 (*)"
+        )
+        
+        if file_path and os.path.exists(file_path):
+            try:
+                # 生成唯一的文件名以避免冲突
+                file_extension = os.path.splitext(file_path)[1]
+                unique_filename = str(uuid.uuid4()) + file_extension
+                
+                # 确保图标目录存在
+                icons_dir = get_icons_dir()
+                
+                # 复制文件到图标目录
+                destination_path = os.path.join(icons_dir, unique_filename)
+                shutil.copy2(file_path, destination_path)
+                
+                # 更新配置
+                self.config["custom_icon"] = unique_filename
+                self.update_icon_preview()
+                
+                logger.info(f"图标文件已复制到: {destination_path}")
+            except Exception as e:
+                logger.error(f"选择图标文件时出错: {e}")
+                QMessageBox.critical(self, "错误", f"无法选择图标文件: {e}")
+                
+    def clear_custom_icon(self):
+        """清除自定义图标"""
+        custom_icon = self.config.get("custom_icon")
+        if custom_icon:
+            try:
+                # 删除图标文件
+                icon_path = os.path.join(get_icons_dir(), custom_icon)
+                if os.path.exists(icon_path):
+                    os.remove(icon_path)
+                    
+                # 更新配置
+                self.config["custom_icon"] = None
+                self.update_icon_preview()
+                
+                logger.info("自定义图标已清除")
+            except Exception as e:
+                logger.error(f"清除自定义图标时出错: {e}")
+                QMessageBox.critical(self, "错误", f"无法清除自定义图标: {e}")
+        else:
+            QMessageBox.information(self, "信息", "当前没有设置自定义图标")
+            
     def apply_config(self):
         """应用配置更改"""
-        # 构建新的配置字典
-        new_config = {
-            "notification_title": self.title_edit.text(),
-            "scroll_speed": self.speed_spin.value(),
-            "scroll_count": self.scroll_spin.value(),
-            "click_to_close": self.click_spin.value(),
-            "right_spacing": self.spacing_spin.value(),
-            "font_size": self.font_spin.value(),
-            "left_margin": self.left_margin_spin.value(),
-            "right_margin": self.right_margin_spin.value(),
-            "icon_scale": self.icon_scale_spin.value(),
-            "label_offset_x": self.label_offset_spin.value(),
-            "window_height": self.window_height_spin.value(),
-            "label_mask_width": self.mask_width_spin.value(),
-            "banner_spacing": self.banner_spacing_spin.value(),
-            "shift_animation_duration": self.shift_duration_spin.value(),
-            "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
-            "do_not_disturb": self.do_not_disturb_checkbox.isChecked(),
-            "scroll_mode": self.scroll_mode_combo.currentData(),  # 添加滚动模式配置
-            "fade_animation_duration": self.fade_duration_spin.value(),  # 添加淡入淡出动画时间配置
-            "base_vertical_offset": self.base_vertical_offset_spin.value(),  # 添加基础垂直偏移配置
-            "log_level": self.log_level_combo.currentText()  # 添加日志等级配置
-        }
+        # 更新配置中的所有字段
+        self.config["notification_title"] = self.title_edit.text()
+        self.config["scroll_speed"] = self.speed_spin.value()
+        self.config["scroll_count"] = self.scroll_spin.value()
+        self.config["click_to_close"] = self.click_spin.value()
+        self.config["right_spacing"] = self.spacing_spin.value()
+        self.config["font_size"] = self.font_spin.value()
+        self.config["left_margin"] = self.left_margin_spin.value()
+        self.config["right_margin"] = self.right_margin_spin.value()
+        self.config["icon_scale"] = self.icon_scale_spin.value()
+        self.config["label_offset_x"] = self.label_offset_spin.value()
+        self.config["window_height"] = self.window_height_spin.value()
+        self.config["label_mask_width"] = self.mask_width_spin.value()
+        self.config["banner_spacing"] = self.banner_spacing_spin.value()
+        self.config["shift_animation_duration"] = self.shift_duration_spin.value()
+        self.config["ignore_duplicate"] = self.ignore_duplicate_checkbox.isChecked()
+        self.config["do_not_disturb"] = self.do_not_disturb_checkbox.isChecked()
+        self.config["scroll_mode"] = self.scroll_mode_combo.currentData()
+        self.config["fade_animation_duration"] = self.fade_duration_spin.value()
+        self.config["base_vertical_offset"] = self.base_vertical_offset_spin.value()
+        self.config["log_level"] = self.log_level_combo.currentText()
+        # custom_icon字段在select_icon和clear_custom_icon方法中已经更新
         
         # 只有配置发生变化时才保存
-        if new_config != self.config:
+        old_config = load_config()
+        if self.config != old_config:
             # 保存配置
-            save_config(new_config)
+            save_config(self.config)
             logger.info("配置已保存")
-            
-            # 更新内部配置
-            self.config = new_config
             
             # 更新监听器的目标标题
             listener = get_listener()
             if listener:
-                listener.set_target_title(new_config["notification_title"])
+                listener.set_target_title(self.config["notification_title"])
                 
             # 更新日志等级
-            log_level = new_config.get("log_level", "INFO")
+            log_level = self.config.get("log_level", "INFO")
             if log_level:
                 logger.remove()
                 logger.add(sys.stderr, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", level=log_level)
@@ -472,7 +564,7 @@ class ToastBannerManager(QObject):
     def __init__(self, parent=None):
         """初始化Toast横幅管理器"""
         super().__init__(parent)
-        logger.info("正在启动Toast横幅通知系统...")
+        logger.info("正在启动ToastBannerSlider...")
         
         # 创建Qt应用程序实例
         self.app = QApplication.instance() or QApplication(sys.argv)
@@ -489,7 +581,7 @@ class ToastBannerManager(QObject):
         # 初始化UI
         self.init_ui()
         
-        logger.info("Toast横幅通知系统初始化完成")
+        logger.info("ToastBannerSlider初始化完成")
         
     def init_ui(self):
         """初始化用户界面"""
@@ -516,6 +608,7 @@ class ToastBannerManager(QObject):
         self.config = load_config()
         
         logger.info("主程序UI初始化完成")
+        
         
     def show_notification(self, message, skip_duplicate_check=False):
         """显示通知横幅
@@ -715,19 +808,19 @@ class ToastBannerManager(QObject):
             update_target_title(new_title)
     
     def update_config(self):
-        """更新配置并刷新托盘图标提示"""
-        logger.info("检测到配置文件更新，重新加载配置")
-        new_config = load_config()
-        # 只有在配置真正变化时才更新
-        if not hasattr(self, 'config') or new_config != self.config:
-            self.config = new_config
+        """更新配置"""
+        logger.debug("检测到配置文件变化，正在更新配置")
+        try:
+            # 重新加载配置
+            self.config = load_config()
+            logger.info("配置已更新")
+            
+            # 更新托盘图标
             if self.tray_icon:
-                target_title = self.config.get("notification_title", "911 呼唤群")
-                self.tray_icon.setToolTip(f"正在监听：{target_title}")
-                
-                # 更新免打扰菜单项状态
-                if hasattr(self, 'dnd_action'):
-                    self.dnd_action.setChecked(self.config.get("do_not_disturb", False))
+                self.tray_icon.setIcon(load_icon())
+                self.tray_icon.setToolTip("ToastBannerSlider")
+        except Exception as e:
+            logger.error(f"更新配置时出错：{e}")
     
     def create_tray_icon(self):
         """创建系统托盘图标
@@ -1104,9 +1197,7 @@ def main():
     
     # 设置应用程序属性
     app.setQuitOnLastWindowClosed(False)
-    # 启用高DPI支持
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
+
     
     # 设置应用程序元信息
     app.setApplicationName("ToastBannerSlider")

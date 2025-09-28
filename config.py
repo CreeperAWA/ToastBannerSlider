@@ -45,11 +45,12 @@ DEFAULT_CONFIG = {
     "label_mask_width": 305,      # 标签遮罩宽度为像素值，整数
     "banner_spacing": 10,         # 横幅间隔为像素值，整数
     "ignore_duplicate": False,    # 是否忽略重复通知
-    "shift_animation_duration": 100,       # 通知上移动画持续时间 (ms) - 整数
+    "shift_animation_duration": 100,       # 通知上移动画持续时间 (ms) - 教授
     "do_not_disturb": False,               # 免打扰模式 - 布尔值
     "fade_animation_duration": 1500,       # 淡入淡出动画持续时间 (ms) - 整数
     "base_vertical_offset": 50,            # 基础垂直偏移量 - 整数
-    "log_level": "INFO"                    # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+    "log_level": "INFO",                   # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+    "custom_icon": None                    # 自定义图标文件名
 }
 
 

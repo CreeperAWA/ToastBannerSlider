@@ -7,8 +7,7 @@ import sys
 from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QHBoxLayout, 
                            QSizePolicy)
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer, Signal
-from PySide6.QtGui import QFont, QPixmap
-import os
+from PySide6.QtGui import QFont
 from config import load_config
 from loguru import logger
 
@@ -105,16 +104,18 @@ class NotificationWindow(QWidget):
         Returns:
             QLabel: 包含喇叭图标的标签
         """
+        from icon_manager import load_icon
         icon_label = QLabel()
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notification_icon.png")
         icon_size = int(48 * self.icon_scale)  # 根据配置的缩放倍数调整图标大小
         
-        # 尝试加载自定义图标，如果失败则使用文本图标
+        # 尝试加载自定义图标
         try:
-            if os.path.exists(icon_path):
-                pixmap = QPixmap(icon_path).scaled(icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            icon = load_icon()
+            if not icon.isNull():
+                pixmap = icon.pixmap(icon_size, icon_size)
                 icon_label.setPixmap(pixmap)
             else:
+                # 如果图标加载失败，使用文本图标
                 icon_label.setText("🔊")
                 icon_label.setFont(QFont("Arial", int(32 * self.icon_scale)))
         except Exception as e:
