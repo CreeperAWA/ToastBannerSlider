@@ -2,6 +2,10 @@
 
 ToastBannerSlider 是一个 Windows 平台的通知监听和显示工具。它可以监听特定标题的 Windows Toast 通知，并以横幅形式在屏幕顶部显示，支持滚动动画和交互操作。
 
+<p align="center">
+  <img src="./doc/Example_of_Notification_Banner.png" alt="通知横幅示例">
+</p>
+
 ## 功能特性
 
 - 监听 Windows Toast 通知
@@ -12,10 +16,10 @@ ToastBannerSlider 是一个 Windows 平台的通知监听和显示工具。它�
 - 开机自启功能
 - 可配置的通知参数
 - 手动发送测试通知
-
-## 界面预览
-
-![通知横幅示例](./doc/Example_of_Notification_Banner.png)
+- 免打扰模式
+- 重复通知过滤
+- 日志等级设置
+- 自定义图标支持
 
 ## 安装依赖
 
@@ -26,7 +30,7 @@ pip install -r requirements.txt
 依赖库：
 - PySide6: 用于构建图形用户界面
 - loguru: 用于日志记录
-- winsdk: 用于访问Windows通知数据库
+- winsdk: 用于对接 Windows 功能
 - pywin32: 用于Windows特定功能
 
 ## 使用方法
@@ -39,6 +43,12 @@ python main.py
 
 程序启动后会在系统托盘中显示图标，不会弹出主窗口。
 
+你也可以使用以下参数启动：
+
+```bash
+python main.py
+```
+
 ### 系统托盘菜单
 
 右键点击系统托盘图标可打开菜单：
@@ -46,6 +56,7 @@ python main.py
 - **显示最后通知**: 显示最近一次接收到的通知
 - **发送通知**: 手动发送测试通知
 - **配置设置**: 配置监听参数
+- **免打扰**: 不显示所有 Toasts 通知
 - **开机自启**: 设置程序开机自动启动
 - **退出**: 退出程序
 
@@ -56,9 +67,25 @@ python main.py
 在配置设置中可以调整以下参数：
 
 1. **通知标题**: 要监听的通知标题（默认为"911 呼唤群"）
-2. **滚动速度**: 文字滚动速度，单位为像素/秒（默认为 200px/s）
-3. **滚动次数**: 文字滚动循环次数（默认为 3 次）
-4. **点击关闭次数**: 点击通知横幅关闭所需的次数（默认为 3 次）
+2. **程序图标**: 自定义程序图标
+3. **滚动速度**: 文字滚动速度，单位为像素/秒（默认为 200px/s）
+4. **滚动次数**: 文字滚动循环次数（默认为 3 次）
+5. **点击关闭次数**: 点击通知横幅关闭所需的次数（默认为 3 次）
+6. **右侧间隔距离**: 横幅右侧与屏幕边缘的距离（默认为 150px）
+7. **字体大小**: 通知文字的字体大小（默认为 48px）
+8. **左侧边距**: 横幅左侧边距（默认为 93px）
+9. **右侧边距**: 横幅右侧边距（默认为 93px）
+10. **图标缩放倍数**: 通知图标缩放比例（默认为 1.0）
+11. **标签文本x轴偏移**: 文字在横幅中的水平偏移量（默认为 0px）
+12. **窗口高度**: 通知横幅窗口高度（默认为 128px）
+13. **标签遮罩宽度**: 文字滚动区域的宽度（默认为 305px）
+14. **横幅间隔**: 多个通知横幅之间的垂直间距（默认为 10px）
+15. **上移动画持续时间**: 新通知出现时的上移动画时间（默认为 100ms）
+16. **淡入淡出动画时间**: 通知显示和消失时的淡入淡出动画时间（默认为 1500ms）
+17. **基础垂直偏移**: 通知横幅相对于屏幕顶部的垂直偏移量（默认为 50px）
+18. **忽略重复通知**: 是否忽略5分钟内的重复通知（默认为否）
+19. **滚动模式**: 选择"不论如何都滚动"或"可以展示完全的不滚动"（默认为总是滚动）
+20. **日志等级**: 设置日志输出等级（默认为 INFO）
 
 ### 通知横幅交互
 
@@ -69,24 +96,41 @@ python main.py
 
 ### 核心组件
 
-1. **监听模块** ([listener.py](./listener.py)):
+1. **主程序** ([main.py](./main.py)):
+   - 整合各模块功能
+   - 管理系统托盘图标
+   - 处理用户交互
+   - 管理通知窗口队列
+
+2. **监听模块** ([listener.py](./listener.py)):
    - 监听 Windows Toast 通知数据库
    - 解析通知内容
    - 筛选指定标题的通知
 
-2. **显示模块** ([notice_slider.py](./notice_slider.py)):
+3. **显示模块** ([notice_slider.py](./notice_slider.py)):
    - 创建顶部通知横幅
    - 实现文字滚动动画
    - 处理用户交互
 
-3. **配置模块** ([config.py](./config.py)):
+4. **配置模块** ([config.py](./config.py)):
    - 管理程序配置
    - 读写配置文件
 
-4. **主程序** ([main.py](./main.py)):
-   - 整合各模块功能
-   - 管理系统托盘图标
-   - 处理用户交互
+5. **系统托盘管理模块** ([tray_manager.py](./tray_manager.py)):
+   - 创建和管理系统托盘图标
+   - 处理托盘菜单操作
+
+6. **通知监听器模块** ([notification_listener.py](./notification_listener.py)):
+   - 在后台线程中监听通知
+
+7. **配置对话框模块** ([config_dialog.py](./config_dialog.py)):
+   - 提供图形界面用于修改配置
+
+8. **发送通知对话框模块** ([send_notification_dialog.py](./send_notification_dialog.py)):
+   - 提供界面用于手动发送测试通知
+
+9. **图标管理模块** ([icon_manager.py](./icon_manager.py)):
+   - 管理程序图标资源
 
 ### 工作原理
 
@@ -101,7 +145,7 @@ python main.py
 使用以下命令构建可执行文件：
 
 ```bash
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="%VERSION%" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="1.0.0" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
 ```
 
 GitHub Actions CI/CD 自动编译时会自动从环境变量获取版本信息。
