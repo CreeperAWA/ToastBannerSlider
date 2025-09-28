@@ -40,6 +40,9 @@ class NotificationWindow(QWidget):
             super().__init__()
             logger.debug("父类QWidget构造函数调用完成")
             
+            # 添加关闭状态标志，防止重复关闭
+            self._is_closing = False
+            
             # 加载配置
             logger.debug("开始加载配置")
             self.config = load_config()
@@ -493,8 +496,16 @@ class NotificationWindow(QWidget):
             
     def close_with_animation(self):
         """带动画效果关闭窗口"""
+        # 检查是否已经在关闭过程中，防止重复调用
+        if self._is_closing:
+            logger.debug("窗口已在关闭过程中，忽略重复关闭请求")
+            return
+            
         logger.debug("开始关闭窗口动画")
         try:
+            # 设置关闭状态标志
+            self._is_closing = True
+            
             logger.debug("停止滚动动画")
             # 停止滚动动画
             if self.animation:
@@ -590,6 +601,15 @@ class NotificationWindow(QWidget):
         """
         logger.debug("窗口关闭事件触发")
         try:
+            # 检查是否已经在关闭过程中
+            if self._is_closing:
+                logger.debug("窗口已在关闭过程中，跳过重复的关闭事件处理")
+                event.accept()
+                return
+                
+            # 设置关闭状态标志
+            self._is_closing = True
+            
             # 发出窗口关闭信号
             logger.debug("发出窗口关闭信号")
             self.window_closed.emit(self)
@@ -689,6 +709,12 @@ class NotificationWindow(QWidget):
         Args:
             event (QMouseEvent): 鼠标点击事件
         """
+        # 如果窗口已经在关闭过程中，则忽略点击事件
+        if self._is_closing:
+            logger.debug("窗口已在关闭过程中，忽略点击事件")
+            event.accept()
+            return
+            
         # 增加点击计数
         self.click_count += 1
         logger.debug(f"通知窗口被点击，点击次数：{self.click_count}/{self.click_to_close}")
