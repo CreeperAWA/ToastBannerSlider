@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineE
                                QComboBox, QFileDialog)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from config import load_config, save_config
+from config import load_config, save_config, setup_logger
 from icon_manager import load_icon, get_icons_dir
 from loguru import logger
 
@@ -388,5 +388,10 @@ class ConfigDialog(QDialog):
             # 保存配置
             save_config(self.config)
             logger.info("配置已保存")
+            
+            # 更新日志等级
+            log_level = self.config.get("log_level", "INFO")
+            if log_level:
+                setup_logger(self.config)
         else:
             logger.debug("配置未发生变化，无需保存")

@@ -322,6 +322,11 @@ class ToastBannerManager(QObject):
             self.config = load_config()
             logger.info("配置已更新")
             
+            # 更新日志等级
+            log_level = self.config.get("log_level", "INFO")
+            if log_level:
+                setup_logger(self.config)
+            
             # 更新托盘管理器
             self.tray_manager.update_config()
         except Exception as e:

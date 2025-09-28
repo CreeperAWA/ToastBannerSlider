@@ -5,12 +5,9 @@
 
 import os
 import sys
-from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap, Qt
+from PySide6.QtCore import QCoreApplication
 from loguru import logger
-
-# 移除默认的日志处理器，避免重复记录
-logger.remove()
 
 
 def get_resource_path(relative_path):
@@ -22,15 +19,18 @@ def get_resource_path(relative_path):
     Returns:
         str: 资源文件的绝对路径
     """
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller打包后的路径
-        return os.path.join(sys._MEIPASS, relative_path)
-    elif getattr(sys, 'frozen', False):
-        # Nuitka打包后的路径
-        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    # 获取可执行文件所在目录
+    if getattr(sys, 'frozen', False):
+        # 打包后的程序
+        base_path = os.path.dirname(sys.executable)
     else:
-        # 开发环境中的路径
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+        # 开发环境
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        
+    # 构建完整路径
+    full_path = os.path.join(base_path, relative_path)
+    logger.debug(f"资源路径解析: {relative_path} -> {full_path}")
+    return full_path
 
 
 def get_icons_dir():
@@ -39,75 +39,82 @@ def get_icons_dir():
     Returns:
         str: 图标目录的绝对路径
     """
-    # 使用可执行文件所在目录
-    icons_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "icons")
+    # 获取可执行文件所在目录
+    if getattr(sys, 'frozen', False):
+        # 打包后的程序
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        
+    # 构建图标目录路径
+    icons_dir = os.path.join(base_path, "icons")
     
-    # 确保目录存在
+    # 确保图标目录存在
     if not os.path.exists(icons_dir):
         try:
             os.makedirs(icons_dir)
             logger.info(f"创建图标目录: {icons_dir}")
         except Exception as e:
             logger.error(f"创建图标目录失败: {e}")
+            return base_path  # 返回基础路径作为备选
             
+    logger.debug(f"图标目录路径: {icons_dir}")
     return icons_dir
 
 
 def load_icon(icon_name="notification_icon.png"):
-    """加载图标资源
+    """加载图标文件
     
     Args:
-        icon_name (str): 图标文件名
+        icon_name (str): 图标文件名，默认为notification_icon.png
         
     Returns:
-        QIcon: 加载的图标对象，加载失败返回空图标
+        QIcon: 加载的图标对象，加载失败时返回空图标
     """
-    # 首先尝试从配置中加载自定义图标
-    from config import load_config
-    config = load_config()
-    custom_icon = config.get("custom_icon")
-    
-    if custom_icon:
-        # 尝试加载自定义图标
-        custom_icon_path = os.path.join(get_icons_dir(), custom_icon)
-        logger.debug(f"尝试加载自定义图标：{custom_icon}，路径：{custom_icon_path}")
+    # 首先尝试加载自定义图标
+    custom_icon = None
+    try:
+        from config import load_config
+        config = load_config()
+        custom_icon_name = config.get("custom_icon")
+        if custom_icon_name:
+            custom_icon_path = os.path.join(get_icons_dir(), custom_icon_name)
+            if os.path.exists(custom_icon_path):
+                custom_icon = QIcon(custom_icon_path)
+                if custom_icon.isNull():
+                    logger.warning(f"自定义图标加载失败: {custom_icon_path}")
+                    custom_icon = None
+                else:
+                    logger.debug(f"成功加载自定义图标: {custom_icon_path}")
+    except Exception as e:
+        logger.warning(f"加载自定义图标时出错: {e}")
         
-        if os.path.exists(custom_icon_path):
-            pixmap = QPixmap(custom_icon_path)
-            if not pixmap.isNull():
-                # 缩放图标以避免锯齿
-                scaled_pixmap = pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                icon = QIcon(scaled_pixmap)
-                if not icon.isNull():
-                    logger.info(f"使用自定义图标：{custom_icon_path}")
-                    return icon
-            logger.warning(f"自定义图标文件无效：{custom_icon_path}")
-    
-    # 如果没有自定义图标或者加载失败，使用默认图标
+    # 如果有自定义图标且有效，直接返回
+    if custom_icon and not custom_icon.isNull():
+        return custom_icon
+        
+    # 尝试加载指定名称的图标
     icon_path = get_resource_path(icon_name)
-    logger.debug(f"尝试加载默认图标：{icon_name}，路径：{icon_path}")
-    
     if os.path.exists(icon_path):
-        pixmap = QPixmap(icon_path)
-        if not pixmap.isNull():
-            # 缩放图标以避免锯齿
-            scaled_pixmap = pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            icon = QIcon(scaled_pixmap)
+        icon = QIcon(icon_path)
+        if not icon.isNull():
+            logger.debug(f"成功加载图标: {icon_path}")
+            return icon
+        else:
+            logger.warning(f"图标文件加载失败: {icon_path}")
+            
+    # 如果指定名称的图标加载失败，尝试加载默认图标
+    if icon_name != "notification_icon.png":
+        default_icon_path = get_resource_path("notification_icon.png")
+        if os.path.exists(default_icon_path):
+            icon = QIcon(default_icon_path)
             if not icon.isNull():
+                logger.debug(f"成功加载默认图标: {default_icon_path}")
                 return icon
-        logger.warning(f"默认图标文件无效：{icon_path}")
-    
-    # 如果指定图标加载失败，尝试加载默认图标
-    default_icon_path = get_resource_path("default_icon.png")
-    if os.path.exists(default_icon_path):
-        default_pixmap = QPixmap(default_icon_path)
-        if not default_pixmap.isNull():
-            # 缩放图标以避免锯齿
-            scaled_default_pixmap = default_pixmap.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            default_icon = QIcon(scaled_default_pixmap)
-            if not default_icon.isNull():
-                logger.info(f"使用默认图标替代：{default_icon_path}")
-                return default_icon
-    
-    logger.error("无法加载任何图标资源")
-    return QIcon()  # 返回空图标
+            else:
+                logger.warning(f"默认图标文件加载失败: {default_icon_path}")
+                
+    # 如果所有图标都加载失败，返回空图标
+    logger.warning("所有图标加载失败，返回空图标")
+    return QIcon()

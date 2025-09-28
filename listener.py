@@ -15,9 +15,6 @@ from datetime import datetime
 from config import load_config
 from loguru import logger
 
-# 移除默认的日志处理器，避免重复记录
-logger.remove()
-
 # 全局变量用于存储通知回调函数和目标标题
 _notification_callback = None
 _target_title = None

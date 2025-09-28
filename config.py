@@ -9,7 +9,6 @@ import sys
 from loguru import logger
 
 # 配置loguru日志格式
-logger.remove()
 
 
 def setup_logger(config=None):
@@ -34,7 +33,7 @@ def setup_logger(config=None):
     # 添加标准错误输出处理器
     logger.add(sys.stderr, 
               format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-              level="DEBUG")
+              level=log_level)
     
     # 添加文件输出处理器，5MB轮转
     logger.add("toast_banner_slider.log", 
