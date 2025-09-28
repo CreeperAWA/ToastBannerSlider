@@ -1059,7 +1059,7 @@ class ToastBannerManager(QObject):
                     if self.tray_icon:
                         self.tray_icon.showMessage(
                             "ToastBannerSlider", 
-                            "程序已在系统托盘运行，双击可重播最后一条通知",
+                            "程序已运行，可在托盘菜单中进行操作",
                             load_icon("notification_icon.png"),  # 使用notification_icon.png作为图标
                             3000  # 显示3秒
                         )
