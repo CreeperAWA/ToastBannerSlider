@@ -1058,9 +1058,9 @@ class ToastBannerManager(QObject):
                     # 显示托盘图标提示
                     if self.tray_icon:
                         self.tray_icon.showMessage(
-                            "Toast横幅通知", 
+                            "ToastBannerSlider", 
                             "程序已在系统托盘运行，双击可重播最后一条通知",
-                            QSystemTrayIcon.MessageIcon.Information,
+                            load_icon("notification_icon.png"),  # 使用notification_icon.png作为图标
                             3000  # 显示3秒
                         )
                         logger.info("已显示托盘图标提示")
@@ -1113,6 +1113,13 @@ def main():
     app.setApplicationDisplayName("Toast Banner Slider")
     app.setOrganizationName("CreeperAWA")
     app.setOrganizationDomain("github.com/CreeperAWA")
+    
+    # 设置Windows应用程序User Model ID，确保Toast通知显示正确的应用程序名称
+    try:
+        from ctypes import windll
+        windll.shell32.SetCurrentProcessExplicitAppUserModelID("ToastBannerSlider")
+    except Exception as e:
+        logger.warning(f"设置应用程序User Model ID失败: {e}")
     
     manager = ToastBannerManager()
     manager.run()
