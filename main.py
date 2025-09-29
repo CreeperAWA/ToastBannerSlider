@@ -8,23 +8,19 @@ import sys
 import time
 import os
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer, QObject
+from PySide6.QtCore import QTimer, QObject, QStandardPaths
 from notice_slider import NotificationWindow
-from config import load_config, get_config_path, setup_logger
-from loguru import logger
+from config import load_config, get_config_path
+from logger_config import logger, setup_logger
 from tray_manager import TrayManager
 from notification_listener import NotificationListenerThread
 from config_dialog import ConfigDialog
 from send_notification_dialog import SendNotificationDialog
 
 
-# 移除默认的日志处理器
-logger.remove()
-# 初始化日志设置
+# 程序启动时立即初始化日志系统
 config = load_config()
-log_level = setup_logger(config)
-if log_level is None:
-    log_level = "INFO"  # 设置默认日志级别
+setup_logger(config)
 
 
 class ConfigWatcher(QObject):
@@ -117,12 +113,14 @@ class ToastBannerManager(QObject):
         
         logger.info("主程序UI初始化完成")
         
-    def show_notification(self, message, skip_duplicate_check=False):
+    def show_notification(self, message: str, skip_duplicate_check: bool = False, skip_restrictions: bool = False, max_scrolls: int | None = None) -> None:
         """显示通知横幅
         
         Args:
-            message (str): 要显示的通知消息
-            skip_duplicate_check (bool): 是否跳过重复消息检查，默认为False
+            message: 要显示的通知消息
+            skip_duplicate_check: 是否跳过重复消息检查，默认为False
+            skip_restrictions: 是否跳过限制检查（免打扰和重复通知），默认为False
+            max_scrolls: 自定义滚动次数，如果为None则使用配置文件中的设置
         """
         logger.debug(f"show_notification 开始处理消息: {message}")
         
@@ -144,14 +142,14 @@ class ToastBannerManager(QObject):
             # 清理5分钟前的历史记录
             self.cleanup_message_history()
             
-            # 检查是否启用了免打扰模式
-            if self.config.get("do_not_disturb", False):
+            # 检查是否启用了免打扰模式（除非跳过限制）
+            if not skip_restrictions and self.config.get("do_not_disturb", False):
                 logger.info("免打扰模式已启用，忽略通知")
                 return
                 
-            # 检查是否启用了忽略重复通知（5分钟内）
+            # 检查是否启用了忽略重复通知（5分钟内）（除非跳过限制）
             # 如果skip_duplicate_check为True，则跳过重复消息检查
-            if not skip_duplicate_check and self.config.get("ignore_duplicate", False):
+            if not skip_restrictions and not skip_duplicate_check and self.config.get("ignore_duplicate", False):
                 # 检查是否在5分钟内有相同消息
                 if self.is_duplicate_message(message, current_time):
                     logger.info(f"忽略5分钟内的重复通知：{message}")
@@ -170,9 +168,9 @@ class ToastBannerManager(QObject):
             total_existing_height = len(self.notification_windows) * base_height
             total_spacing = len(self.notification_windows) * banner_spacing
             
-            # 创建并显示新的通知窗口
+            # 创建并显示新的通知窗口，传递自定义滚动次数
             logger.debug("创建NotificationWindow实例")
-            window = NotificationWindow(message, vertical_offset=total_existing_height + total_spacing)
+            window = NotificationWindow(message, vertical_offset=total_existing_height + total_spacing, max_scrolls=max_scrolls)
             logger.debug("NotificationWindow实例创建完成")
             
             # 防止程序因最后一个窗口关闭而退出
@@ -257,14 +255,9 @@ class ToastBannerManager(QObject):
         
         # 检查是否有有效的最后消息
         if last_message:
-            # 检查是否启用了免打扰模式
-            if self.config.get("do_not_disturb", False):
-                logger.info("免打扰模式已启用，无法显示最后通知")
-                return
-                
             # 将最后一条消息作为新通知显示，添加到现有通知队列中
-            # 传递skip_duplicate_check=True参数以跳过重复消息检查
-            self.show_notification(last_message, skip_duplicate_check=True)
+            # 传递skip_duplicate_check=True和skip_restrictions=True参数以跳过所有限制
+            self.show_notification(last_message, skip_duplicate_check=True, skip_restrictions=True)
         else:
             logger.warning("没有可显示的通知")
     
@@ -316,48 +309,47 @@ class ToastBannerManager(QObject):
     
     def update_config(self):
         """更新配置"""
-        logger.debug("检测到配置文件变化，正在更新配置")
         try:
+            logger.debug("更新配置")
             # 重新加载配置
+            old_config = self.config
             self.config = load_config()
             logger.info("配置已更新")
             
             # 更新日志等级
-            log_level = self.config.get("log_level", "INFO")
-            if log_level:
-                setup_logger(self.config)
+            setup_logger(self.config)
             
             # 更新托盘管理器
-            self.tray_manager.update_config()
+            if self.tray_manager:
+                self.tray_manager.update_config()
+                
+            # 更新所有现有的通知窗口
+            for window in self.notification_windows:
+                if hasattr(window, 'update_config'):
+                    window.update_config(self.config)
+                    
         except Exception as e:
             logger.error(f"更新配置时出错：{e}")
     
     def _delayed_create_tray_icon(self):
-        """延迟创建托盘图标，确保GUI环境完全初始化"""
+        """延迟创建托盘图标"""
         try:
+            logger.debug("延迟创建托盘图标")
+            
+            # 创建托盘图标
             if not self.tray_manager.create_tray_icon():
                 logger.error("创建托盘图标失败")
-                # 不要退出程序，只是记录错误
-                # self.app.quit()
-            else:
-                logger.info("托盘图标创建成功")
+                return
                 
-                # 如果是开机自启模式，隐藏托盘图标提示
-                if "--startup" in sys.argv:
-                    logger.info("以开机自启模式运行，不显示托盘图标提示")
-                else:
-                    # 显示托盘图标提示
-                    self.tray_manager.show_message(
-                        "ToastBannerSlider", 
-                        "程序已运行，可在托盘菜单中进行操作"
-                    )
-                    logger.info("已显示托盘图标提示")
-                
+            # 显示托盘消息，使用自定义图标
+            self.tray_manager.show_message(
+                "ToastBannerSlider", 
+                "程序已运行，可在托盘菜单中进行操作"
+            )
+            
+            logger.info("托盘图标创建成功")
         except Exception as e:
-            logger.error(f"创建托盘图标时出错：{e}")
-            # 不要退出程序，只是记录错误
-            # QMessageBox.critical(None, "错误", f"创建托盘图标失败：{e}")
-            # self.app.quit()
+            logger.error(f"延迟创建托盘图标时出错: {e}")
             
     def exit_application(self):
         """退出应用程序"""
@@ -398,6 +390,7 @@ class ToastBannerManager(QObject):
         logger.debug("进入run方法")
         # 启动Qt事件循环
         try:
+            logger.debug("尝试启动Qt事件循环")
             logger.debug("尝试启动Qt事件循环")
             exit_code = self.app.exec()
             logger.debug(f"Qt事件循环结束，退出码: {exit_code}")

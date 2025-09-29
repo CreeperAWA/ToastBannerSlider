@@ -28,10 +28,10 @@ pip install -r requirements.txt
 ```
 
 依赖库：
-- PySide6: 用于构建图形用户界面
-- loguru: 用于日志记录
-- winsdk: 用于对接 Windows 功能
-- pywin32: 用于Windows特定功能
+- PySide6 (6.x): 用于构建图形用户界面
+- loguru (0.5.x): 用于日志记录
+- winsdk (1.x): 用于对接 Windows 功能
+- pywin32 (227+): 用于Windows特定功能
 
 ## 使用方法
 
@@ -99,63 +99,52 @@ python main.py
 1. **主程序** ([main.py](./main.py)):
    - 整合各模块功能
    - 管理系统托盘图标
-   - 处理用户交互
-   - 管理通知窗口队列
+   - 控制整个应用程序生命周期
 
-2. **监听模块** ([listener.py](./listener.py)):
-   - 监听 Windows Toast 通知数据库
-   - 解析通知内容
-   - 筛选指定标题的通知
-
-3. **显示模块** ([notice_slider.py](./notice_slider.py)):
-   - 创建顶部通知横幅
+2. **通知横幅** ([notice_slider.py](./notice_slider.py)):
+   - 创建和显示顶部通知横幅
    - 实现文字滚动动画
    - 处理用户交互
 
-4. **配置模块** ([config.py](./config.py)):
-   - 管理程序配置
-   - 读写配置文件
+3. **配置管理** ([config.py](./config.py)):
+   - 加载和保存配置信息
+   - 管理日志设置
 
-5. **系统托盘管理模块** ([tray_manager.py](./tray_manager.py)):
+4. **系统托盘管理** ([tray_manager.py](./tray_manager.py)):
    - 创建和管理系统托盘图标
-   - 处理托盘菜单操作
+   - 处理托盘菜单事件
 
-6. **通知监听器模块** ([notification_listener.py](./notification_listener.py)):
-   - 在后台线程中监听通知
+5. **通知监听** ([notification_listener.py](./notification_listener.py)):
+   - 监听 Windows Toast 通知数据库
+   - 过滤匹配标题的通知
 
-7. **配置对话框模块** ([config_dialog.py](./config_dialog.py)):
-   - 提供图形界面用于修改配置
+6. **配置对话框** ([config_dialog.py](./config_dialog.py)):
+   - 提供图形化配置界面
+   - 允许用户修改各种参数
 
-8. **发送通知对话框模块** ([send_notification_dialog.py](./send_notification_dialog.py)):
-   - 提供界面用于手动发送测试通知
+7. **发送通知对话框** ([send_notification_dialog.py](./send_notification_dialog.py)):
+   - 提供手动发送测试通知的界面
 
-9. **图标管理模块** ([icon_manager.py](./icon_manager.py)):
+8. **图标管理** ([icon_manager.py](./icon_manager.py)):
    - 管理程序图标资源
+   - 支持自定义图标加载
 
-### 工作原理
+### 工作流程
 
-1. 程序启动后会在后台运行通知监听线程
-2. 监听线程定期检查 Windows 通知数据库
-3. 当发现匹配标题的通知时，通过回调函数传递给主程序
-4. 主程序创建通知横幅窗口并显示通知内容
-5. 通知横幅具有滚动动画和点击交互功能
+1. 程序启动时创建系统托盘图标和通知监听线程
+2. 通知监听线程定期轮询 Windows Toast 通知数据库
+3. 当发现匹配标题的通知时，触发回调函数
+4. 主程序创建通知横幅实例并显示
+5. 用户可以通过点击横幅或使用托盘菜单与程序交互
 
-## 构建可执行文件
+## 打包发布
 
-使用以下命令构建可执行文件：
+使用 Nuitka 将程序打包为独立的可执行文件：
 
 ```bash
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="1.0.0" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="1.0.0" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico main.py
 ```
 
-GitHub Actions CI/CD 自动编译时会自动从环境变量获取版本信息。
+## 开源许可
 
-## 许可证
-
-<p align="left">
-  本项目采用&nbsp;
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" style="vertical-align: text-bottom; margin-right: 5px;">
-    <path d="M8.75.75V2h.985c.304 0 .603.08.867.231l1.29.736c.038.022.08.033.124.033h2.234a.75.75 0 0 1 0 1.5h-.427l2.111 4.692a.75.75 0 0 1-.154.838l-.53-.53.529.531-.001.002-.002.002-.006.006-.006.005-.01.01-.045.04c-.21.176-.441.327-.686.45C14.556 10.78 13.88 11 13 11a4.498 4.498 0 0 1-2.023-.454 3.544 3.544 0 0 1-.686-.45l-.045-.04-.016-.015-.006-.006-.004-.004v-.001a.75.75 0 0 1-.154-.838L12.178 4.5h-.162c-.305 0-.604-.079-.868-.231l-1.29-.736a.245.245 0 0 0-.124-.033H8.75V13h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5V3.5h-.984a.245.245 0 0 0-.124.033l-1.289.737c-.265.15-.564.23-.869.23h-.162l2.112 4.692a.75.75 0 0 1-.154.838l-.53-.53.529.531-.001.002-.002.002-.006.006-.016.015-.045.04c-.21.176-.441.327-.686.45C4.556 10.78 3.88 11 3 11a4.498 4.498 0 0 1-2.023-.454 3.544 3.544 0 0 1-.686-.45l-.045-.04-.016-.015-.006-.006-.004-.004v-.001a.75.75 0 0 1-.154-.838L2.178 4.5H1.75a.75.75 0 0 1 0-1.5h2.234a.249.249 0 0 0 .125-.033l1.288-.737c.265-.15.564-.23.869-.23h.984V.75a.75.75 0 0 1 1.5 0Zm2.945 8.477c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L13 6.327Zm-10 0c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L3 6.327Z"/>
-  </svg>
-  <a href="https://github.com/CreeperAWA/ToastBannerSlider/blob/main/LICENSE">GNU General Public License 3.0</a> 许可证。
-</p>
+本项目采用 GNU General Public License v3.0 许可证。

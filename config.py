@@ -8,41 +8,6 @@ import os
 import sys
 from loguru import logger
 
-# 配置loguru日志格式
-
-
-def setup_logger(config=None):
-    """根据配置设置日志记录器
-    
-    Args:
-        config (dict, optional): 配置字典
-        
-    Returns:
-        str: 日志级别
-    """
-    # 如果没有提供配置，则加载配置
-    if config is None:
-        config = load_config()
-    
-    # 获取日志等级，默认为INFO
-    log_level = config.get("log_level", "INFO")
-    
-    # 移除现有的所有处理器
-    logger.remove()
-    
-    # 添加标准错误输出处理器
-    logger.add(sys.stderr, 
-              format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-              level=log_level)
-    
-    # 添加文件输出处理器，5MB轮转
-    logger.add("toast_banner_slider.log", 
-              rotation="5 MB", 
-              format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-              level=log_level)
-    
-    return log_level
-
 
 # 默认配置
 DEFAULT_CONFIG = {
@@ -66,7 +31,8 @@ DEFAULT_CONFIG = {
     "base_vertical_offset": 50,            # 基础垂直偏移量 - 整数
     "log_level": "INFO",                   # 日志等级 - 字符串 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
     "scroll_mode": "always",               # 滚动模式 - 字符串 (always, auto)
-    "custom_icon": None                    # 自定义图标文件名
+    "custom_icon": None,                   # 自定义图标文件名
+    "banner_opacity": 0.9                  # 横幅透明度 (0.0-1.0) - 浮点数
 }
 
 
@@ -80,7 +46,6 @@ def get_config_path():
     config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     
     config_path = os.path.join(config_dir, "config.json")
-    logger.debug(f"配置文件路径: {config_path}")
     return config_path
 
 
@@ -91,7 +56,6 @@ def load_config():
         dict: 配置字典，包含所有配置项
     """
     CONFIG_FILE = get_config_path()
-    logger.debug(f"尝试加载配置文件: {CONFIG_FILE}")
     
     if os.path.exists(CONFIG_FILE):
         try:
@@ -101,21 +65,13 @@ def load_config():
             for key, value in DEFAULT_CONFIG.items():
                 if key not in config:
                     config[key] = value
-            logger.info("配置文件加载成功")
-            # 设置日志记录器
-            setup_logger(config)
             return config
-        except Exception as e:
-            logger.error(f"读取配置文件时出错：{e}")
-            # 即使配置读取失败，也要设置日志记录器
-            setup_logger(DEFAULT_CONFIG)
+        except Exception:
+            # 即使配置读取失败，也要返回默认配置
             return DEFAULT_CONFIG
     else:
         # 如果配置文件不存在，创建默认配置文件
         save_config(DEFAULT_CONFIG)
-        logger.info("创建默认配置文件")
-        # 设置日志记录器
-        setup_logger(DEFAULT_CONFIG)
         return DEFAULT_CONFIG
 
 
@@ -129,7 +85,6 @@ def save_config(config):
         bool: 保存成功返回True，失败返回False
     """
     CONFIG_FILE = get_config_path()
-    logger.debug(f"尝试保存配置文件: {CONFIG_FILE}")
     
     try:
         # 确保目录存在
@@ -139,10 +94,6 @@ def save_config(config):
             
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
-        logger.info("配置已保存")
-        # 重新设置日志记录器（包括日志等级）
-        setup_logger(config)
         return True
-    except Exception as e:
-        logger.error(f"保存配置文件时出错：{e}")
+    except Exception:
         return False

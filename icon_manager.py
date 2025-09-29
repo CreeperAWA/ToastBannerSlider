@@ -5,9 +5,11 @@
 
 import os
 import sys
+import uuid
+import shutil
 from PySide6.QtGui import QIcon, QPixmap, Qt
 from PySide6.QtCore import QCoreApplication
-from loguru import logger
+from logger_config import logger
 
 
 def get_resource_path(relative_path):
@@ -37,7 +39,7 @@ def get_icons_dir():
     """获取图标目录路径
     
     Returns:
-        str: 图标目录的绝对路径
+        str: 图标目录的绝对路径，如果创建失败则返回None
     """
     # 使用与配置模块相同的方式获取基础目录，避免Nuitka单文件模式下保存到临时文件夹
     config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -49,67 +51,115 @@ def get_icons_dir():
     if not os.path.exists(icons_dir):
         try:
             os.makedirs(icons_dir)
-            logger.info(f"创建图标目录: {icons_dir}")
+            logger.debug(f"创建图标目录: {icons_dir}")
         except Exception as e:
             logger.error(f"创建图标目录失败: {e}")
-            return config_dir  # 返回基础路径作为备选
+            return None
             
     logger.debug(f"图标目录路径: {icons_dir}")
     return icons_dir
 
 
-def load_icon(icon_name="notification_icon.png"):
-    """加载图标文件
+def save_custom_icon(icon_path):
+    """保存自定义图标，使用UUID重命名以避免冲突
     
     Args:
-        icon_name (str): 图标文件名，默认为notification_icon.png
+        icon_path (str): 原始图标文件路径
         
     Returns:
-        QIcon: 加载的图标对象，加载失败时返回空图标
+        str: 保存后的图标文件名（仅文件名），失败时返回None
     """
-    # 首先尝试加载自定义图标
-    custom_icon = None
     try:
-        from config import load_config
-        config = load_config()
-        custom_icon_name = config.get("custom_icon")
-        if custom_icon_name:
-            custom_icon_path = os.path.join(get_icons_dir(), custom_icon_name)
-            if os.path.exists(custom_icon_path):
-                custom_icon = QIcon(custom_icon_path)
-                if custom_icon.isNull():
-                    logger.warning(f"自定义图标加载失败: {custom_icon_path}")
-                    custom_icon = None
-                else:
-                    logger.debug(f"成功加载自定义图标: {custom_icon_path}")
-    except Exception as e:
-        logger.warning(f"加载自定义图标时出错: {e}")
-        
-    # 如果有自定义图标且有效，直接返回
-    if custom_icon and not custom_icon.isNull():
-        return custom_icon
-        
-    # 尝试加载指定名称的图标
-    icon_path = get_resource_path(icon_name)
-    if os.path.exists(icon_path):
-        icon = QIcon(icon_path)
-        if not icon.isNull():
-            logger.debug(f"成功加载图标: {icon_path}")
-            return icon
-        else:
-            logger.warning(f"图标文件加载失败: {icon_path}")
+        if not icon_path or not os.path.exists(icon_path):
+            logger.warning(f"图标文件不存在或路径无效: {icon_path}")
+            return None
             
-    # 如果指定名称的图标加载失败，尝试加载默认图标
-    if icon_name != "notification_icon.png":
-        default_icon_path = get_resource_path("notification_icon.png")
-        if os.path.exists(default_icon_path):
-            icon = QIcon(default_icon_path)
-            if not icon.isNull():
-                logger.debug(f"成功加载默认图标: {default_icon_path}")
-                return icon
-            else:
-                logger.warning(f"默认图标文件加载失败: {default_icon_path}")
-                
-    # 如果所有图标都加载失败，返回空图标
-    logger.warning("所有图标加载失败，返回空图标")
-    return QIcon()
+        # 获取图标目录
+        icons_dir = get_icons_dir()
+        if not icons_dir:
+            logger.error("无法获取图标目录")
+            return None
+            
+        # 获取文件扩展名
+        _, ext = os.path.splitext(icon_path)
+        if not ext:
+            ext = ".png"  # 默认扩展名
+            
+        # 生成UUID文件名
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        target_path = os.path.join(icons_dir, unique_filename)
+        
+        # 复制文件
+        import shutil
+        shutil.copy2(icon_path, target_path)
+        
+        logger.debug(f"图标文件已保存: {icon_path} -> {target_path}")
+        return unique_filename
+    except Exception as e:
+        logger.error(f"保存自定义图标时出错: {e}")
+        return None
+
+
+def load_icon(config=None):
+    """加载图标
+    
+    Args:
+        config (dict, optional): 配置字典
+        
+    Returns:
+        QIcon: 加载的图标，如果失败则返回空图标
+    """
+    try:
+        logger.debug("开始加载图标")
+        
+        # 如果提供了配置且包含自定义图标设置，则优先加载自定义图标
+        if config and "custom_icon" in config:
+            custom_icon_filename = config.get("custom_icon")
+            if custom_icon_filename:
+                icons_dir = get_icons_dir()
+                if icons_dir:
+                    icon_path = os.path.join(icons_dir, custom_icon_filename)
+                    if os.path.exists(icon_path):
+                        icon = QIcon(icon_path)
+                        if not icon.isNull():
+                            logger.debug(f"成功加载自定义图标: {icon_path}")
+                            return icon
+                        else:
+                            logger.warning(f"自定义图标文件无效: {icon_path}")
+                    else:
+                        logger.warning(f"自定义图标文件不存在: {icon_path}")
+        
+        # 如果没有自定义图标或加载失败，使用默认图标
+        try:
+            resource_icon_path = get_resource_path("notification_icon.ico")
+            if os.path.exists(resource_icon_path):
+                icon = QIcon(resource_icon_path)
+                if not icon.isNull():
+                    logger.debug(f"成功加载资源图标: {resource_icon_path}")
+                    return icon
+        except Exception as e:
+            logger.debug(f"无法从资源加载图标: {e}")
+            
+        # 尝试使用notification_icon.png作为后备
+        try:
+            resource_icon_path = get_resource_path("notification_icon.png")
+            if os.path.exists(resource_icon_path):
+                icon = QIcon(resource_icon_path)
+                if not icon.isNull():
+                    logger.debug(f"成功加载PNG资源图标: {resource_icon_path}")
+                    return icon
+        except Exception as e:
+            logger.debug(f"无法从PNG资源加载图标: {e}")
+            
+        # 尝试使用系统主题图标作为后备
+        system_icon = QIcon.fromTheme("application-x-executable")
+        if not system_icon.isNull():
+            logger.debug("成功加载系统默认图标")
+            return system_icon
+            
+        logger.warning("无法加载任何图标，返回空图标")
+        return QIcon()
+        
+    except Exception as e:
+        logger.error(f"加载图标时发生异常: {e}")
+        return QIcon()

@@ -6,10 +6,11 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QHBoxLayout, 
                            QSizePolicy)
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer, Signal
-from PySide6.QtGui import QFont, QRegion
+from PySide6.QtCore import (Qt, QPropertyAnimation, QEasingCurve, QPoint, 
+                            QTimer, Signal, QStandardPaths)
+from PySide6.QtGui import QFont, QRegion, QPalette
 from config import load_config
-from loguru import logger
+from logger_config import logger
 
 class NotificationWindow(QWidget):
     """顶部通知窗口 - 实现消息滚动显示和交互功能"""
@@ -17,14 +18,15 @@ class NotificationWindow(QWidget):
     # 定义窗口关闭信号
     window_closed = Signal(object)
     
-    def __init__(self, message: str = "", vertical_offset: int = 0):
+    def __init__(self, message: str = "", vertical_offset: int = 0, max_scrolls = None):
         """初始化通知窗口
         
         Args:
             message (str, optional): 要显示的消息内容
             vertical_offset (int): 垂直偏移量，用于多窗口显示
+            max_scrolls (int, optional): 最大滚动次数，如果为None则使用配置文件中的设置
         """
-        logger.debug(f"NotificationWindow.__init__ 开始，message={message}, vertical_offset={vertical_offset}")
+        logger.debug(f"NotificationWindow.__init__ 开始，message={message}, vertical_offset={vertical_offset}, max_scrolls={max_scrolls}")
         
         try:
             # 调用父类构造函数
@@ -53,7 +55,8 @@ class NotificationWindow(QWidget):
             self.message = " ".join(initial_message.splitlines())
             
             self.scroll_count = 0
-            self.max_scrolls = self.config.get("scroll_count", 3)  # 从配置中获取最大滚动次数
+            # 使用传入的max_scrolls参数，如果为None则使用配置文件中的设置
+            self.max_scrolls = max_scrolls if max_scrolls is not None else self.config.get("scroll_count", 3)
             self.animation = None
             self.text_width = 0
             self.speed = self.config.get("scroll_speed", 200.0)  # 从配置中获取滚动速度 (px/s)
@@ -119,7 +122,7 @@ class NotificationWindow(QWidget):
                 
             icon_label.setStyleSheet("color: white; background: transparent;")
             icon_label.setFixedSize(icon_size, icon_size)
-            icon_label.setAlignment(Qt.AlignCenter)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             return icon_label
         except Exception as e:
             logger.error(f"创建图标标签时出错: {e}", exc_info=True)
@@ -127,7 +130,7 @@ class NotificationWindow(QWidget):
             icon_label = QLabel("🔊")
             icon_label.setStyleSheet("color: white; background: transparent;")
             icon_label.setFixedSize(48, 48)
-            icon_label.setAlignment(Qt.AlignCenter)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             return icon_label
 
     def _create_label_widget(self) -> QWidget:
@@ -154,8 +157,8 @@ class NotificationWindow(QWidget):
         label_text = QLabel("消息提醒:")
         label_text.setFont(QFont("Microsoft YaHei", int(self.font_size // 2)))  # 根据配置的字体大小调整
         label_text.setStyleSheet("color: #3b9fdc; background: transparent;")
-        label_text.setAlignment(Qt.AlignVCenter)
-        label_text.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        label_text.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        label_text.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         
         # 应用标签文本的x轴偏移
         if self.label_offset_x != 0:
@@ -182,8 +185,8 @@ class NotificationWindow(QWidget):
             message_text = QLabel(self.message)
             message_text.setFont(QFont("Microsoft YaHei", int(self.font_size // 2)))  # 使用配置的字体大小
             message_text.setStyleSheet("color: white; background: transparent;")
-            message_text.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-            message_text.setAttribute(Qt.WA_TranslucentBackground)
+            message_text.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+            message_text.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             message_text.setWordWrap(False)
             
             # 设置文本标签的高度与父容器一致
@@ -214,13 +217,13 @@ class NotificationWindow(QWidget):
             # 设置窗口属性
             logger.debug("设置窗口属性")
             self.setWindowFlags(
-                Qt.FramelessWindowHint |  # 无边框
-                Qt.WindowStaysOnTopHint |  # 置顶
-                Qt.Tool |  # 工具窗口
-                Qt.WindowDoesNotAcceptFocus |  # 不接受焦点
-                Qt.X11BypassWindowManagerHint  # 绕过窗口管理器（仅在X11下有效）
+                Qt.WindowType.FramelessWindowHint |  # 无边框
+                Qt.WindowType.WindowStaysOnTopHint |  # 置顶
+                Qt.WindowType.Tool |  # 工具窗口
+                Qt.WindowType.WindowDoesNotAcceptFocus |  # 不接受焦点
+                Qt.WindowType.X11BypassWindowManagerHint  # 绕过窗口管理器（仅在X11下有效）
             )
-            self.setAttribute(Qt.WA_TranslucentBackground, True)  # 背景透明
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)  # 背景透明
             
             # 获取屏幕信息
             logger.debug("获取屏幕信息")
@@ -234,16 +237,18 @@ class NotificationWindow(QWidget):
             logger.debug(f"屏幕几何信息: {screen_geometry}")
             logger.debug(f"可用屏幕几何信息: {available_geometry}")
             
+            # 获取横幅透明度配置，现在是0-1范围的浮点数
+            banner_opacity = self.config.get("banner_opacity", 0.9)
             
             # 创建主容器 - 使用样式表实现半透明背景
             logger.debug("创建主容器")
             self.main_content = QWidget(self)
             self.main_content.setGeometry(0, 0, screen_width, self.window_height)
-            self.main_content.setStyleSheet("""
-                QWidget {
-                    background-color: rgba(30, 30, 30, 230);
+            self.main_content.setStyleSheet(f"""
+                QWidget {{
+                    background-color: rgba(30, 30, 30, {banner_opacity});
                     border: none;
-                }
+                }}
             """)
             
             # 主布局
@@ -261,7 +266,7 @@ class NotificationWindow(QWidget):
             logger.debug("创建消息容器")
             self.message_container = QWidget()
             self.message_container.setStyleSheet("background: transparent;")
-            self.message_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.message_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self.message_container.setFixedHeight(self.window_height)
             
             # 创建消息滑动区域
@@ -361,7 +366,7 @@ class NotificationWindow(QWidget):
                     self.animation.setDuration(int(scroll_duration))
                     self.animation.setStartValue(QPoint(available_width, 0))  # 从右侧外部开始
                     self.animation.setEndValue(QPoint(-(self.text_width + self.space), 0))  # 滚动到左侧外部结束
-                    self.animation.setEasingCurve(QEasingCurve.Linear)
+                    self.animation.setEasingCurve(QEasingCurve.Type.Linear)
                     self.animation.finished.connect(self.animation_completed)
                     self.animation.start()
                 
@@ -370,7 +375,7 @@ class NotificationWindow(QWidget):
                 logger.debug("文本不滚动，居中显示")
                 # 文本不滚动，居中显示
                 if hasattr(self, 'message_text'):
-                    self.message_text.setAlignment(Qt.AlignCenter)
+                    self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     self.message_text.setFixedWidth(available_width)
                     self.message_text.show()
 
@@ -432,7 +437,7 @@ class NotificationWindow(QWidget):
                 # 从右侧开始，y=0保持垂直居中
                 self.animation.setStartValue(QPoint(available_width, 0))
                 self.animation.setEndValue(QPoint(-(self.text_width + self.space), 0))
-                self.animation.setEasingCurve(QEasingCurve.Linear)
+                self.animation.setEasingCurve(QEasingCurve.Type.Linear)
                 self.animation.finished.connect(self.animation_completed)
                 self.animation.start()
                 logger.debug(f"滚动动画已启动，持续时间：{int(scroll_duration)} 毫秒")
@@ -464,7 +469,7 @@ class NotificationWindow(QWidget):
             self.vertical_animation.setDuration(self.config.get("shift_animation_duration", 100))  # 使用配置的动画时间
             self.vertical_animation.setStartValue(self.pos())
             self.vertical_animation.setEndValue(QPoint(0, actual_offset))
-            self.vertical_animation.setEasingCurve(QEasingCurve.OutCubic)
+            self.vertical_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
             self.vertical_animation.start()
             
             logger.debug(f"垂直偏移动画已启动，从 {self.pos().y()} 移动到 {actual_offset}")
@@ -526,7 +531,7 @@ class NotificationWindow(QWidget):
             self.fade_out.setDuration(fade_duration)
             self.fade_out.setStartValue(1.0)
             self.fade_out.setEndValue(0.0)
-            self.fade_out.setEasingCurve(QEasingCurve.OutCubic)
+            self.fade_out.setEasingCurve(QEasingCurve.Type.OutCubic)
             self.fade_out.finished.connect(self._on_fade_out_finished)
             self.fade_out.start()
             logger.debug(f"淡出动画已启动，持续时间: {fade_duration}ms")
@@ -677,7 +682,7 @@ class NotificationWindow(QWidget):
             self.fade_in.setDuration(fade_duration)
             self.fade_in.setStartValue(0.0)
             self.fade_in.setEndValue(1.0)
-            self.fade_in.setEasingCurve(QEasingCurve.InCubic)
+            self.fade_in.setEasingCurve(QEasingCurve.Type.InCubic)
             self.fade_in.start()
             logger.debug(f"淡入动画已启动，持续时间: {fade_duration}ms")
         except Exception as e:
@@ -689,10 +694,10 @@ class NotificationWindow(QWidget):
         try:
             # 设置窗口标志以减少闪烁
             self.setWindowFlags(
-                Qt.FramelessWindowHint |
-                Qt.WindowStaysOnTopHint |
-                Qt.Tool |
-                Qt.X11BypassWindowManagerHint
+                Qt.WindowType.FramelessWindowHint |
+                Qt.WindowType.WindowStaysOnTopHint |
+                Qt.WindowType.Tool |
+                Qt.WindowType.X11BypassWindowManagerHint
             )
             
             super().show()
@@ -731,6 +736,45 @@ class NotificationWindow(QWidget):
         
         # 接受事件，防止事件传播
         event.accept()
+
+    def update_opacity(self, opacity):
+        """更新横幅透明度
+        
+        Args:
+            opacity (float): 透明度值 (0.0-1.0)
+        """
+        try:
+            logger.debug(f"更新横幅透明度为: {opacity}")
+            if hasattr(self, 'main_content') and self.main_content:
+                self.main_content.setStyleSheet(f"""
+                    QWidget {{
+                        background-color: rgba(30, 30, 30, {opacity});
+                        border: none;
+                    }}
+                """)
+                logger.debug("横幅透明度已更新")
+        except Exception as e:
+            logger.error(f"更新横幅透明度时出错: {e}")
+            
+    def update_config(self, new_config):
+        """更新配置
+        
+        Args:
+            new_config (dict): 新的配置字典
+        """
+        try:
+            logger.debug("更新通知窗口配置")
+            old_opacity = self.config.get("banner_opacity", 230)
+            self.config.update(new_config)
+            new_opacity = self.config.get("banner_opacity", 230)
+            
+            # 如果透明度发生变化，则更新透明度
+            if old_opacity != new_opacity:
+                self.update_opacity(new_opacity)
+                
+            logger.debug("通知窗口配置更新完成")
+        except Exception as e:
+            logger.error(f"更新通知窗口配置时出错: {e}")
 
 def main():
     """主函数 - 用于测试通知窗口显示"""
