@@ -117,15 +117,16 @@ class TrayManager:
         except Exception as e:
             logger.error(f"设置托盘图标工具提示时出错: {e}")
             
-    def update_tooltip(self, tooltip):
+    def update_tooltip(self, notification_title):
         """更新托盘图标提示
         
         Args:
-            tooltip (str): 新的提示文本
+            notification_title (str): 新的通知标题
         """
         try:
-            logger.debug(f"更新托盘图标提示: {tooltip}")
+            logger.debug(f"更新托盘图标提示: {notification_title}")
             if self.tray_icon:
+                tooltip = f"ToastBannerSlider - 监听: {notification_title}"
                 self.tray_icon.setToolTip(tooltip)
                 logger.debug("托盘图标提示已更新")
         except Exception as e:

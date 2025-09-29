@@ -36,6 +36,10 @@ class ConfigDialog(QDialog):
             self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
             self.setModal(False)
             
+            # 设置窗口尺寸
+            self.setMinimumSize(500, 700)  # 设置最小尺寸
+            self.resize(550, 750)  # 设置默认尺寸
+            
             # 设置窗口图标
             self._set_window_icon()
             
