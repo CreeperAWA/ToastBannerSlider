@@ -7,8 +7,8 @@ import sys
 from PySide6.QtWidgets import (QApplication, QWidget, QLabel, QHBoxLayout, 
                            QSizePolicy)
 from PySide6.QtCore import (Qt, QPropertyAnimation, QEasingCurve, QPoint, 
-                            QTimer, Signal, QStandardPaths)
-from PySide6.QtGui import QFont, QRegion, QPalette
+                            QTimer, Signal)
+from PySide6.QtGui import QFont
 from config import load_config
 from logger_config import logger
 

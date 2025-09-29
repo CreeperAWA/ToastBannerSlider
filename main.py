@@ -8,7 +8,7 @@ import sys
 import time
 import os
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer, QObject, QStandardPaths
+from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
 from config import load_config, get_config_path
 from logger_config import logger, setup_logger

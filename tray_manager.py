@@ -5,9 +5,8 @@
 
 import sys
 import os
-from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QMessageBox
+from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtGui import QIcon, QPixmap, Qt, QAction
-from PySide6.QtCore import QCoreApplication
 from logger_config import logger
 from config import load_config
 from icon_manager import load_icon, get_resource_path

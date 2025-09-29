@@ -6,9 +6,7 @@
 import os
 import sys
 import uuid
-import shutil
-from PySide6.QtGui import QIcon, QPixmap, Qt
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtGui import QIcon
 from logger_config import logger
 
 

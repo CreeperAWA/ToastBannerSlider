@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit,
 from PySide6.QtCore import Qt
 from logger_config import logger
 from config import load_config
-import os
 
 
 class SendNotificationDialog(QDialog):
