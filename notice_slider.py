@@ -105,9 +105,9 @@ class NotificationWindow(QWidget):
             icon_label = QLabel()
             icon_size = int(48 * self.icon_scale)  # 根据配置的缩放倍数调整图标大小
             
-            # 尝试加载自定义图标
+            # 尝试加载自定义图标，传递当前配置确保正确加载自定义图标
             try:
-                icon = load_icon()
+                icon = load_icon(self.config)  # 传递当前配置
                 if not icon.isNull():
                     pixmap = icon.pixmap(icon_size, icon_size)
                     icon_label.setPixmap(pixmap)

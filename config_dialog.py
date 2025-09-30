@@ -6,12 +6,13 @@
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, 
                                QLineEdit, QSpinBox, QDoubleSpinBox, QCheckBox,
                                QPushButton, QGroupBox, QComboBox, QLabel,
-                               QFileDialog, QMessageBox)
+                               QFileDialog, QMessageBox, QScrollArea, QWidget,
+                               QFrame)
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QIcon, QPixmap
 from logger_config import logger
-from config import load_config, save_config, get_config_path
-from icon_manager import load_icon, get_resource_path
+from config import load_config, save_config, get_config_path, DEFAULT_CONFIG
+from icon_manager import load_icon, get_resource_path, save_custom_icon
 import os
 
 class TrayIconUpdateEvent(QEvent):
@@ -82,7 +83,6 @@ class ConfigDialog(QDialog):
             main_layout = QVBoxLayout(self)
             
             # 创建滚动区域以容纳所有配置项
-            from PySide6.QtWidgets import QScrollArea, QWidget
             scroll_area = QScrollArea()
             scroll_area.setWidgetResizable(True)
             scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -389,14 +389,12 @@ class ConfigDialog(QDialog):
             # 图标预览
             preview_layout = QHBoxLayout()
             preview_layout.addWidget(QLabel("图标预览:"))
-            
-            from PySide6.QtWidgets import QFrame
+
             preview_frame = QFrame()
             preview_frame.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Sunken)
             preview_frame.setFixedSize(64, 64)
             
-            from PySide6.QtWidgets import QHBoxLayout as PreviewLayout
-            preview_inner_layout = PreviewLayout(preview_frame)
+            preview_inner_layout = QHBoxLayout(preview_frame)
             preview_inner_layout.setContentsMargins(0, 0, 0, 0)
             
             self.icon_preview_label = QLabel()
@@ -444,7 +442,6 @@ class ConfigDialog(QDialog):
                 logger.debug(f"选择的图标文件: {file_path}")
                 
                 # 保存图标文件到icons目录并使用UUID重命名
-                from icon_manager import save_custom_icon
                 saved_filename = save_custom_icon(file_path)
                 
                 if saved_filename:
@@ -563,9 +560,6 @@ class ConfigDialog(QDialog):
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                # 从config模块导入默认配置
-                from config import DEFAULT_CONFIG
-                
                 # 更新界面控件
                 self.title_edit.setText(DEFAULT_CONFIG.get("notification_title", "911 呼唤群"))
                 self.speed_spinbox.setValue(DEFAULT_CONFIG.get("scroll_speed", 200.0))
@@ -599,22 +593,8 @@ class ConfigDialog(QDialog):
                 # 复选框
                 self.ignore_duplicate_checkbox.setChecked(DEFAULT_CONFIG.get("ignore_duplicate", False))
                 self.dnd_checkbox.setChecked(DEFAULT_CONFIG.get("do_not_disturb", False))
-                
-                # 图标
-                default_icon = DEFAULT_CONFIG.get("custom_icon")
-                if default_icon:
-                    self.icon_edit.setText(default_icon)
-                else:
-                    self.icon_edit.clear()
-                    
-                # 更新图标预览
-                self._update_icon_preview()
-                
-                logger.debug("已恢复默认设置")
-                QMessageBox.information(self, "信息", "已恢复默认设置")
         except Exception as e:
             logger.error(f"处理恢复默认事件时出错: {e}")
-            QMessageBox.critical(self, "错误", f"恢复默认设置时出错: {e}")
             
     def _on_ok(self):
         """处理确定事件"""
@@ -673,15 +653,7 @@ class ConfigDialog(QDialog):
         """处理取消事件"""
         try:
             logger.debug("处理取消事件")
+            # 拒绝对话框
             self.reject()
         except Exception as e:
             logger.error(f"处理取消事件时出错: {e}")
-
-    def event(self, event):
-        """处理自定义事件"""
-        if isinstance(event, TrayIconUpdateEvent):
-            # 通知主程序更新托盘图标
-            if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
-                self.parent().update_config()
-            return True
-        return super().event(event)

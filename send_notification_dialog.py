@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit,
 from PySide6.QtCore import Qt
 from logger_config import logger
 from config import load_config
+from icon_manager import load_icon
 
 
 class SendNotificationDialog(QDialog):
@@ -35,6 +36,9 @@ class SendNotificationDialog(QDialog):
         # 加载配置
         self.config = load_config()
         
+        # 设置窗口图标
+        self._set_window_icon()
+        
         # 创建UI
         self._create_ui()
         
@@ -43,6 +47,25 @@ class SendNotificationDialog(QDialog):
         
         logger.debug("发送通知对话框初始化完成")
         
+    def _set_window_icon(self):
+        """设置发送通知对话框窗口图标"""
+        try:
+            logger.debug("设置发送通知对话框窗口图标")
+            
+            # 先确保配置已加载
+            if not hasattr(self, 'config'):
+                self.config = load_config()
+                
+            # 加载图标
+            icon = load_icon(self.config)
+            if not icon.isNull():
+                self.setWindowIcon(icon)
+                logger.debug("发送通知对话框窗口图标设置成功")
+            else:
+                logger.warning("发送通知对话框窗口图标为空")
+        except Exception as e:
+            logger.error(f"设置发送通知对话框窗口图标时出错: {e}")
+            
     def _create_ui(self):
         """创建用户界面"""
         try:
