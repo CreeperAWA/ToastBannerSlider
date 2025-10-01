@@ -4,26 +4,29 @@
 通过访问Windows通知数据库来捕获通知，并将解析后的内容传递给回调函数。
 """
 
-import sqlite3
 import base64
-import xml.etree.ElementTree as ET
-import os
-import time
 import json
+import os
+import sqlite3
 import sys
+import time
 from datetime import datetime
+from typing import Optional, Callable, Tuple, Set, Dict
+
+import xml.etree.ElementTree as ET
+
 from config import load_config
 from logger_config import logger
 from PySide6.QtCore import QThread, Signal
 
 
 # 全局变量用于存储通知回调函数和目标标题
-_notification_callback = None
-_target_title = None
-_listener_instance = None
+_notification_callback: Optional[Callable[[str], None]] = None
+_target_title: Optional[str] = None
+_listener_instance: Optional['NotificationListener'] = None
 
 
-def set_notification_callback(callback):
+def set_notification_callback(callback: Optional[Callable[[str], None]]) -> None:
     """设置通知回调函数
     
     Args:
@@ -36,13 +39,13 @@ def set_notification_callback(callback):
 class NotificationListener:
     """通知监听器类"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化通知监听器"""
-        self.target_title = None
+        self.target_title: Optional[str] = None
         global _listener_instance
         _listener_instance = self
     
-    def set_target_title(self, title):
+    def set_target_title(self, title: str) -> None:
         """设置监听的目标标题
         
         Args:
@@ -53,7 +56,7 @@ class NotificationListener:
         if old_title != title:
             logger.info(f"监听标题已更新，从 '{old_title}' 更改为 '{title}'")
     
-    def get_target_title(self):
+    def get_target_title(self) -> Optional[str]:
         """获取当前监听的目标标题
         
         Returns:
@@ -62,7 +65,7 @@ class NotificationListener:
         return self.target_title
 
 
-def get_listener():
+def get_listener() -> Optional[NotificationListener]:
     """获取监听器实例
     
     Returns:
@@ -72,7 +75,7 @@ def get_listener():
     return _listener_instance
 
 
-def update_target_title(new_title):
+def update_target_title(new_title: str) -> None:
     """更新监听的目标标题
     
     Args:
@@ -83,7 +86,7 @@ def update_target_title(new_title):
         listener.set_target_title(new_title)
 
 
-def get_wpndatabase_path():
+def get_wpndatabase_path() -> str:
     """获取 Windows 通知数据库的路径
     
     Returns:
@@ -100,7 +103,7 @@ def get_wpndatabase_path():
     return db_path
 
 
-def decode_payload(payload):
+def decode_payload(payload: str) -> Optional[str]:
     """解码 base64 编码的通知载荷
     
     Args:
@@ -118,7 +121,7 @@ def decode_payload(payload):
         return None
 
 
-def parse_notification_xml(xml_content):
+def parse_notification_xml(xml_content: str) -> Tuple[Optional[str], Optional[str]]:
     """解析通知 XML 内容，提取标题和内容
     
     Args:
@@ -145,7 +148,7 @@ def parse_notification_xml(xml_content):
         return None, None
 
 
-def listen_for_notifications(check_interval=5, stop_check=None):
+def listen_for_notifications(check_interval: int = 5, stop_check: Optional[Callable[[], bool]] = None) -> None:
     """监听指定标题的 Windows Toast 通知
     
     Args:
@@ -165,13 +168,13 @@ def listen_for_notifications(check_interval=5, stop_check=None):
     # 加载配置
     config = load_config()
     target_title = config.get("notification_title", "911 呼唤群")
-    listener.set_target_title(target_title)
+    listener.set_target_title(str(target_title))
     
     logger.info(f"开始监听标题为 '{target_title}' 的 Windows Toast 通知...")
     logger.info(f"数据库路径：{db_path}")
     
     # 用于避免重复通知的集合
-    processed_notifications = set()
+    processed_notifications: Set[str] = set()
     
     try:
         while True:
@@ -204,7 +207,7 @@ def listen_for_notifications(check_interval=5, stop_check=None):
                 last_check_time = int(time.time() * 10000000) + 116444736000000000  # 转换为 Windows FILETIME 格式
                 
                 for notification in notifications:
-                    notification_id, notification_type, payload, arrival_time = notification
+                    notification_id, _notification_type, payload, arrival_time = notification
                     
                     # 避免处理重复通知
                     if notification_id in processed_notifications:
@@ -233,18 +236,18 @@ def listen_for_notifications(check_interval=5, stop_check=None):
                     # 筛选指定标题的通知
                     if title == target_title and content:
                         # 输出通知内容供其他程序使用
-                        result = {
+                        result: Dict[str, object] = {
                             "timestamp": datetime.now().isoformat(),
-                            "title": title,
-                            "content": content,
-                            "arrival_time": arrival_time
+                            "title": title or "",
+                            "content": content or "",
+                            "arrival_time": arrival_time or 0
                         }
                         
                         logger.info(f"收到通知 - 标题：{title}，内容：{content}")
                         
                         # 如果设置了回调函数，则调用它
                         if _notification_callback:
-                            _notification_callback(content)
+                            _notification_callback(content or "")
                         else:
                             # 否则输出 JSON 格式，便于其他程序解析
                             print(json.dumps(result, ensure_ascii=False))
@@ -274,7 +277,7 @@ class NotificationListenerThread(QThread):
     # 定义信号，用于发送通知消息
     notification_received = Signal(str, bool)  # message, skip_duplicate_check
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化通知监听线程"""
         super().__init__()
         logger.debug("初始化通知监听线程")
@@ -287,14 +290,14 @@ class NotificationListenerThread(QThread):
         
         # 加载配置
         self.config = load_config()
-        self.notification_title = self.config.get("notification_title", "911 呼唤群")
+        self.notification_title = str(self.config.get("notification_title", "911 呼唤群"))
         
         # 更新监听器的目标标题
         update_target_title(self.notification_title)
         
         logger.debug("通知监听线程初始化完成")
     
-    def _on_notification_received(self, message):
+    def _on_notification_received(self, message: str) -> None:
         """处理接收到的通知
         
         Args:
@@ -303,7 +306,7 @@ class NotificationListenerThread(QThread):
         # 发送信号给主线程
         self.notification_received.emit(message, False)
     
-    def run(self):
+    def run(self) -> None:
         """线程主循环"""
         logger.info("通知监听线程开始运行")
         
@@ -315,12 +318,12 @@ class NotificationListenerThread(QThread):
         finally:
             logger.info("通知监听线程结束运行")
     
-    def stop(self):
+    def stop(self) -> None:
         """停止线程"""
         logger.debug("停止通知监听线程")
         self._running = False
     
-    def is_running(self):
+    def is_running(self) -> bool:
         """检查线程是否正在运行
         
         Returns:
@@ -328,12 +331,12 @@ class NotificationListenerThread(QThread):
         """
         return self._running
     
-    def update_config(self):
+    def update_config(self) -> None:
         """更新配置"""
         try:
             logger.debug("更新通知监听线程配置")
             self.config = load_config()
-            self.notification_title = self.config.get("notification_title", "911 呼唤群")
+            self.notification_title = str(self.config.get("notification_title", "911 呼唤群"))
             update_target_title(self.notification_title)
             logger.debug(f"通知监听标题更新为: {self.notification_title}")
         except Exception as e:

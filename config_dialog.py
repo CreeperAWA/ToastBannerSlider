@@ -14,23 +14,27 @@ from logger_config import logger
 from config import load_config, save_config, get_config_path, DEFAULT_CONFIG
 from icon_manager import load_icon, get_resource_path, save_custom_icon
 import os
+from typing import Dict, Union
+from PySide6.QtWidgets import QWidget as QWidgetType
+
 
 class TrayIconUpdateEvent(QEvent):
     """托盘图标更新事件"""
     def __init__(self):
         super().__init__(QEvent.Type(QEvent.registerEventType()))
 
+
 class ConfigDialog(QDialog):
     """配置对话框"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidgetType | None = None) -> None:
         """初始化配置对话框"""
         try:
             super().__init__(parent)
             logger.debug("初始化配置对话框")
             
             # 先加载配置
-            self.config = load_config()
+            self.config: Dict[str, Union[str, float, int, bool, None]] = load_config()
             
             # 设置窗口属性
             self.setWindowTitle("配置设置")
@@ -55,7 +59,7 @@ class ConfigDialog(QDialog):
             logger.error(f"初始化配置对话框时出错: {e}")
             raise
             
-    def _set_window_icon(self):
+    def _set_window_icon(self) -> None:
         """设置配置对话框窗口图标"""
         try:
             logger.debug("设置配置对话框窗口图标")
@@ -74,7 +78,7 @@ class ConfigDialog(QDialog):
         except Exception as e:
             logger.error(f"设置配置对话框窗口图标时出错: {e}")
             
-    def _create_ui(self):
+    def _create_ui(self) -> None:
         """创建用户界面"""
         try:
             logger.debug("创建配置对话框UI")
@@ -144,7 +148,7 @@ class ConfigDialog(QDialog):
         except Exception as e:
             logger.error(f"创建配置对话框UI时出错: {e}")
             
-    def _create_basic_group(self):
+    def _create_basic_group(self) -> QGroupBox:
         """创建基本设置组
         
         Returns:
@@ -156,26 +160,26 @@ class ConfigDialog(QDialog):
             
             # 通知标题
             self.title_edit = QLineEdit()
-            self.title_edit.setText(self.config.get("notification_title", "911 呼唤群"))
+            self.title_edit.setText(str(self.config.get("notification_title", "911 呼唤群")))
             layout.addRow("通知标题:", self.title_edit)
             
             # 滚动速度
             self.speed_spinbox = QDoubleSpinBox()
             self.speed_spinbox.setRange(1.0, 1000.0)
-            self.speed_spinbox.setValue(self.config.get("scroll_speed", 200.0))
+            self.speed_spinbox.setValue(float(self.config.get("scroll_speed", 200.0) or 200.0))
             self.speed_spinbox.setSuffix(" px/s")
             layout.addRow("滚动速度:", self.speed_spinbox)
             
             # 滚动次数
             self.scroll_count_spinbox = QSpinBox()
             self.scroll_count_spinbox.setRange(1, 100)
-            self.scroll_count_spinbox.setValue(self.config.get("scroll_count", 3))
+            self.scroll_count_spinbox.setValue(int(self.config.get("scroll_count", 3) or 3))
             layout.addRow("滚动次数:", self.scroll_count_spinbox)
             
             # 点击关闭次数
             self.click_close_spinbox = QSpinBox()
             self.click_close_spinbox.setRange(1, 10)
-            self.click_close_spinbox.setValue(self.config.get("click_to_close", 3))
+            self.click_close_spinbox.setValue(int(self.config.get("click_to_close", 3) or 3))
             layout.addRow("点击关闭次数:", self.click_close_spinbox)
             
             return group
@@ -183,7 +187,7 @@ class ConfigDialog(QDialog):
             logger.error(f"创建基本设置组时出错: {e}")
             return QGroupBox("基本设置")
             
-    def _create_display_group(self):
+    def _create_display_group(self) -> QGroupBox:
         """创建显示设置组
         
         Returns:
@@ -196,77 +200,77 @@ class ConfigDialog(QDialog):
             # 右侧间隔距离
             self.spacing_spinbox = QSpinBox()
             self.spacing_spinbox.setRange(0, 1000)
-            self.spacing_spinbox.setValue(self.config.get("right_spacing", 150))
+            self.spacing_spinbox.setValue(int(self.config.get("right_spacing", 150) or 150))
             self.spacing_spinbox.setSuffix(" px")
             layout.addRow("右侧间隔距离:", self.spacing_spinbox)
             
             # 字体大小
             self.font_size_spinbox = QDoubleSpinBox()
             self.font_size_spinbox.setRange(1.0, 100.0)
-            self.font_size_spinbox.setValue(self.config.get("font_size", 48.0))
+            self.font_size_spinbox.setValue(float(self.config.get("font_size", 48.0) or 48.0))
             self.font_size_spinbox.setSuffix(" px")
             layout.addRow("字体大小:", self.font_size_spinbox)
             
             # 左侧边距
             self.left_margin_spinbox = QSpinBox()
             self.left_margin_spinbox.setRange(0, 500)
-            self.left_margin_spinbox.setValue(self.config.get("left_margin", 93))
+            self.left_margin_spinbox.setValue(int(self.config.get("left_margin", 93) or 93))
             self.left_margin_spinbox.setSuffix(" px")
             layout.addRow("左侧边距:", self.left_margin_spinbox)
             
             # 右侧边距
             self.right_margin_spinbox = QSpinBox()
             self.right_margin_spinbox.setRange(0, 500)
-            self.right_margin_spinbox.setValue(self.config.get("right_margin", 93))
+            self.right_margin_spinbox.setValue(int(self.config.get("right_margin", 93) or 93))
             self.right_margin_spinbox.setSuffix(" px")
             layout.addRow("右侧边距:", self.right_margin_spinbox)
             
             # 图标缩放倍数
             self.icon_scale_spinbox = QDoubleSpinBox()
             self.icon_scale_spinbox.setRange(0.1, 5.0)
-            self.icon_scale_spinbox.setValue(self.config.get("icon_scale", 1.0))
+            self.icon_scale_spinbox.setValue(float(self.config.get("icon_scale", 1.0) or 1.0))
             self.icon_scale_spinbox.setSingleStep(0.1)
             layout.addRow("图标缩放倍数:", self.icon_scale_spinbox)
             
             # 标签文本x轴偏移
             self.label_offset_x_spinbox = QSpinBox()
             self.label_offset_x_spinbox.setRange(-500, 500)
-            self.label_offset_x_spinbox.setValue(self.config.get("label_offset_x", 0))
+            self.label_offset_x_spinbox.setValue(int(self.config.get("label_offset_x", 0) or 0))
             self.label_offset_x_spinbox.setSuffix(" px")
             layout.addRow("标签文本x轴偏移:", self.label_offset_x_spinbox)
             
             # 窗口高度
             self.window_height_spinbox = QSpinBox()
             self.window_height_spinbox.setRange(20, 500)
-            self.window_height_spinbox.setValue(self.config.get("window_height", 128))
+            self.window_height_spinbox.setValue(int(self.config.get("window_height", 128) or 128))
             self.window_height_spinbox.setSuffix(" px")
             layout.addRow("窗口高度:", self.window_height_spinbox)
             
             # 标签遮罩宽度
             self.label_mask_width_spinbox = QSpinBox()
             self.label_mask_width_spinbox.setRange(50, 1000)
-            self.label_mask_width_spinbox.setValue(self.config.get("label_mask_width", 305))
+            self.label_mask_width_spinbox.setValue(int(self.config.get("label_mask_width", 305) or 305))
             self.label_mask_width_spinbox.setSuffix(" px")
             layout.addRow("标签遮罩宽度:", self.label_mask_width_spinbox)
             
             # 横幅间隔
             self.banner_spacing_spinbox = QSpinBox()
             self.banner_spacing_spinbox.setRange(0, 100)
-            self.banner_spacing_spinbox.setValue(self.config.get("banner_spacing", 10))
+            self.banner_spacing_spinbox.setValue(int(self.config.get("banner_spacing", 10) or 10))
             self.banner_spacing_spinbox.setSuffix(" px")
             layout.addRow("横幅间隔:", self.banner_spacing_spinbox)
             
             # 基础垂直偏移量
             self.base_vertical_offset_spinbox = QSpinBox()
             self.base_vertical_offset_spinbox.setRange(-1000, 1000)
-            self.base_vertical_offset_spinbox.setValue(self.config.get("base_vertical_offset", 50))
+            self.base_vertical_offset_spinbox.setValue(int(self.config.get("base_vertical_offset", 50) or 50))
             self.base_vertical_offset_spinbox.setSuffix(" px")
             layout.addRow("基础垂直偏移量:", self.base_vertical_offset_spinbox)
             
             # 添加横幅透明度设置，使用0-1范围的双精度浮点数
             self.banner_opacity_spinbox = QDoubleSpinBox()
             self.banner_opacity_spinbox.setRange(0.0, 1.0)
-            self.banner_opacity_spinbox.setValue(self.config.get("banner_opacity", 0.9))
+            self.banner_opacity_spinbox.setValue(float(self.config.get("banner_opacity", 0.9) or 0.9))
             self.banner_opacity_spinbox.setSingleStep(0.01)
             layout.addRow("横幅透明度:", self.banner_opacity_spinbox)
             
@@ -285,7 +289,7 @@ class ConfigDialog(QDialog):
             logger.error(f"创建显示设置组时出错: {e}")
             return QGroupBox("显示设置")
             
-    def _create_animation_group(self):
+    def _create_animation_group(self) -> QGroupBox:
         """创建动画设置组
         
         Returns:
@@ -298,14 +302,14 @@ class ConfigDialog(QDialog):
             # 上移动画持续时间
             self.shift_duration_spinbox = QSpinBox()
             self.shift_duration_spinbox.setRange(0, 5000)
-            self.shift_duration_spinbox.setValue(self.config.get("shift_animation_duration", 100))
+            self.shift_duration_spinbox.setValue(int(self.config.get("shift_animation_duration", 100) or 100))
             self.shift_duration_spinbox.setSuffix(" ms")
             layout.addRow("上移动画持续时间:", self.shift_duration_spinbox)
             
             # 淡入淡出动画时间
             self.fade_duration_spinbox = QSpinBox()
             self.fade_duration_spinbox.setRange(0, 10000)
-            self.fade_duration_spinbox.setValue(self.config.get("fade_animation_duration", 1500))
+            self.fade_duration_spinbox.setValue(int(self.config.get("fade_animation_duration", 1500) or 1500))
             self.fade_duration_spinbox.setSuffix(" ms")
             layout.addRow("淡入淡出动画时间:", self.fade_duration_spinbox)
             
@@ -314,7 +318,7 @@ class ConfigDialog(QDialog):
             logger.error(f"创建动画设置组时出错: {e}")
             return QGroupBox("动画设置")
             
-    def _create_advanced_group(self):
+    def _create_advanced_group(self) -> QGroupBox:
         """创建高级设置组
         
         Returns:
@@ -341,12 +345,12 @@ class ConfigDialog(QDialog):
             
             # 忽略重复通知
             self.ignore_duplicate_checkbox = QCheckBox("忽略5分钟内的重复通知")
-            self.ignore_duplicate_checkbox.setChecked(self.config.get("ignore_duplicate", False))
+            self.ignore_duplicate_checkbox.setChecked(bool(self.config.get("ignore_duplicate", False)))
             layout.addRow(self.ignore_duplicate_checkbox)
             
             # 免打扰模式
             self.dnd_checkbox = QCheckBox("免打扰模式")
-            self.dnd_checkbox.setChecked(self.config.get("do_not_disturb", False))
+            self.dnd_checkbox.setChecked(bool(self.config.get("do_not_disturb", False)))
             layout.addRow(self.dnd_checkbox)
             
             return group
@@ -354,7 +358,7 @@ class ConfigDialog(QDialog):
             logger.error(f"创建高级设置组时出错: {e}")
             return QGroupBox("高级设置")
             
-    def _create_icon_group(self):
+    def _create_icon_group(self) -> QGroupBox:
         """创建图标设置组
         
         Returns:
@@ -371,7 +375,7 @@ class ConfigDialog(QDialog):
             self.icon_edit = QLineEdit()
             current_icon = self.config.get("custom_icon")
             if current_icon:
-                self.icon_edit.setText(current_icon)
+                self.icon_edit.setText(str(current_icon))
             icon_layout.addWidget(self.icon_edit)
             
             # 选择图标按钮
@@ -414,7 +418,7 @@ class ConfigDialog(QDialog):
             logger.error(f"创建图标设置组时出错: {e}")
             return QGroupBox("图标设置")
             
-    def _connect_signals(self):
+    def _connect_signals(self) -> None:
         """连接信号"""
         try:
             logger.debug("连接配置对话框信号")
@@ -425,7 +429,7 @@ class ConfigDialog(QDialog):
         except Exception as e:
             logger.error(f"连接配置对话框信号时出错: {e}")
             
-    def _on_select_icon(self):
+    def _on_select_icon(self) -> None:
         """处理选择图标事件"""
         try:
             logger.debug("处理选择图标事件")
@@ -446,7 +450,7 @@ class ConfigDialog(QDialog):
                 
                 if saved_filename:
                     # 更新图标编辑框
-                    self.icon_edit.setText(saved_filename)
+                    self.icon_edit.setText(str(saved_filename))
                     
                     # 更新图标预览
                     self._update_icon_preview()
@@ -461,7 +465,7 @@ class ConfigDialog(QDialog):
             logger.error(f"处理选择图标事件时出错: {e}")
             QMessageBox.critical(self, "错误", f"选择图标文件时出错: {e}")
             
-    def _on_clear_icon(self):
+    def _on_clear_icon(self) -> None:
         """处理清除图标事件"""
         try:
             logger.debug("处理清除图标事件")
@@ -474,7 +478,7 @@ class ConfigDialog(QDialog):
             if current_icon:
                 config_dir = os.path.dirname(get_config_path())
                 icons_dir = os.path.join(config_dir, "icons")
-                icon_path = os.path.join(icons_dir, current_icon)
+                icon_path = os.path.join(icons_dir, str(current_icon))
                 if os.path.exists(icon_path):
                     os.remove(icon_path)
                     
@@ -482,12 +486,15 @@ class ConfigDialog(QDialog):
             
             # 立即更新托盘图标
             if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
-                self.parent().update_config()
+                try:
+                    self.parent().update_config()  # type: ignore
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"处理清除图标事件时出错: {e}")
             QMessageBox.critical(self, "错误", f"清除图标文件时出错: {e}")
             
-    def _on_icon_changed(self, text):
+    def _on_icon_changed(self, text: str) -> None:
         """处理图标文本变化事件
         
         Args:
@@ -499,7 +506,7 @@ class ConfigDialog(QDialog):
         except Exception as e:
             logger.error(f"处理图标文本变化事件时出错: {e}")
             
-    def _update_icon_preview(self):
+    def _update_icon_preview(self) -> None:
         """更新图标预览"""
         try:
             logger.debug("更新图标预览")
@@ -546,7 +553,8 @@ class ConfigDialog(QDialog):
                 self.icon_preview_label.setPixmap(pixmap)
             except Exception as e2:
                 logger.error(f"设置默认图标预览时出错: {e2}")
-    def _on_reset(self):
+                
+    def _on_reset(self) -> None:
         """处理恢复默认事件"""
         try:
             logger.debug("处理恢复默认事件")
@@ -561,24 +569,24 @@ class ConfigDialog(QDialog):
             
             if reply == QMessageBox.StandardButton.Yes:
                 # 更新界面控件
-                self.title_edit.setText(DEFAULT_CONFIG.get("notification_title", "911 呼唤群"))
-                self.speed_spinbox.setValue(DEFAULT_CONFIG.get("scroll_speed", 200.0))
-                self.scroll_count_spinbox.setValue(DEFAULT_CONFIG.get("scroll_count", 3))
-                self.click_close_spinbox.setValue(DEFAULT_CONFIG.get("click_to_close", 3))
-                self.spacing_spinbox.setValue(DEFAULT_CONFIG.get("right_spacing", 150))
-                self.font_size_spinbox.setValue(DEFAULT_CONFIG.get("font_size", 48.0))
-                self.left_margin_spinbox.setValue(DEFAULT_CONFIG.get("left_margin", 93))
-                self.right_margin_spinbox.setValue(DEFAULT_CONFIG.get("right_margin", 93))
-                self.icon_scale_spinbox.setValue(DEFAULT_CONFIG.get("icon_scale", 1.0))
-                self.label_offset_x_spinbox.setValue(DEFAULT_CONFIG.get("label_offset_x", 0))
-                self.window_height_spinbox.setValue(DEFAULT_CONFIG.get("window_height", 128))
-                self.label_mask_width_spinbox.setValue(DEFAULT_CONFIG.get("label_mask_width", 305))
-                self.banner_spacing_spinbox.setValue(DEFAULT_CONFIG.get("banner_spacing", 10))
-                self.shift_duration_spinbox.setValue(DEFAULT_CONFIG.get("shift_animation_duration", 100))
-                self.fade_duration_spinbox.setValue(DEFAULT_CONFIG.get("fade_animation_duration", 1500))
-                self.base_vertical_offset_spinbox.setValue(DEFAULT_CONFIG.get("base_vertical_offset", 50))
+                self.title_edit.setText(str(DEFAULT_CONFIG.get("notification_title", "911 呼唤群")))
+                self.speed_spinbox.setValue(float(DEFAULT_CONFIG.get("scroll_speed", 200.0) or 200.0))
+                self.scroll_count_spinbox.setValue(int(DEFAULT_CONFIG.get("scroll_count", 3) or 3))
+                self.click_close_spinbox.setValue(int(DEFAULT_CONFIG.get("click_to_close", 3) or 3))
+                self.spacing_spinbox.setValue(int(DEFAULT_CONFIG.get("right_spacing", 150) or 150))
+                self.font_size_spinbox.setValue(float(DEFAULT_CONFIG.get("font_size", 48.0) or 48.0))
+                self.left_margin_spinbox.setValue(int(DEFAULT_CONFIG.get("left_margin", 93) or 93))
+                self.right_margin_spinbox.setValue(int(DEFAULT_CONFIG.get("right_margin", 93) or 93))
+                self.icon_scale_spinbox.setValue(float(DEFAULT_CONFIG.get("icon_scale", 1.0) or 1.0))
+                self.label_offset_x_spinbox.setValue(int(DEFAULT_CONFIG.get("label_offset_x", 0) or 0))
+                self.window_height_spinbox.setValue(int(DEFAULT_CONFIG.get("window_height", 128) or 128))
+                self.label_mask_width_spinbox.setValue(int(DEFAULT_CONFIG.get("label_mask_width", 305) or 305))
+                self.banner_spacing_spinbox.setValue(int(DEFAULT_CONFIG.get("banner_spacing", 10) or 10))
+                self.shift_duration_spinbox.setValue(int(DEFAULT_CONFIG.get("shift_animation_duration", 100) or 100))
+                self.fade_duration_spinbox.setValue(int(DEFAULT_CONFIG.get("fade_animation_duration", 1500) or 1500))
+                self.base_vertical_offset_spinbox.setValue(int(DEFAULT_CONFIG.get("base_vertical_offset", 50) or 50))
                 # 更新横幅透明度的重置逻辑
-                self.banner_opacity_spinbox.setValue(DEFAULT_CONFIG.get("banner_opacity", 0.9))
+                self.banner_opacity_spinbox.setValue(float(DEFAULT_CONFIG.get("banner_opacity", 0.9) or 0.9))
                 
                 # 滚动模式
                 index = self.scroll_mode_combo.findData(DEFAULT_CONFIG.get("scroll_mode", "always"))
@@ -591,18 +599,18 @@ class ConfigDialog(QDialog):
                     self.log_level_combo.setCurrentIndex(index)
                     
                 # 复选框
-                self.ignore_duplicate_checkbox.setChecked(DEFAULT_CONFIG.get("ignore_duplicate", False))
-                self.dnd_checkbox.setChecked(DEFAULT_CONFIG.get("do_not_disturb", False))
+                self.ignore_duplicate_checkbox.setChecked(bool(DEFAULT_CONFIG.get("ignore_duplicate", False)))
+                self.dnd_checkbox.setChecked(bool(DEFAULT_CONFIG.get("do_not_disturb", False)))
         except Exception as e:
             logger.error(f"处理恢复默认事件时出错: {e}")
             
-    def _on_ok(self):
+    def _on_ok(self) -> None:
         """处理确定事件"""
         try:
             logger.debug("处理确定事件")
             
             # 收集配置
-            new_config = {
+            new_config: Dict[str, Union[str, float, int, bool, None]] = {
                 "notification_title": self.title_edit.text(),
                 "scroll_speed": self.speed_spinbox.value(),
                 "scroll_count": self.scroll_count_spinbox.value(),
@@ -640,7 +648,10 @@ class ConfigDialog(QDialog):
                    (old_icon != new_icon):
                     # 图标发生变化，通知主程序更新托盘图标
                     if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
-                        self.parent().update_config()
+                        try:
+                            self.parent().update_config()  # type: ignore
+                        except Exception:
+                            pass
                 self.accept()
             else:
                 logger.error("保存配置失败")
@@ -649,7 +660,7 @@ class ConfigDialog(QDialog):
             logger.error(f"处理确定事件时出错: {e}")
             QMessageBox.critical(self, "错误", f"保存配置时出错: {e}")
             
-    def _on_cancel(self):
+    def _on_cancel(self) -> None:
         """处理取消事件"""
         try:
             logger.debug("处理取消事件")

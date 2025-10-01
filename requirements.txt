@@ -1,4 +1,2 @@
 PySide6
 loguru
-winsdk
-pywin32

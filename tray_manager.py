@@ -7,16 +7,20 @@ import sys
 import os
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtGui import QIcon, QPixmap, Qt, QAction
+from PySide6.QtCore import QObject
 from logger_config import logger
 from config import load_config
 from icon_manager import load_icon, get_resource_path
+from typing import Optional, Callable, Dict, Union
 
 
-class TrayManager:
+class TrayManager(QObject):
     """系统托盘管理器"""
     
-    def __init__(self, notification_callback=None, show_last_notification_callback=None,
-                 show_send_notification_callback=None, show_config_dialog_callback=None):
+    def __init__(self, notification_callback: Optional[Callable[[], None]] = None, 
+                 show_last_notification_callback: Optional[Callable[[], None]] = None,
+                 show_send_notification_callback: Optional[Callable[[], None]] = None, 
+                 show_config_dialog_callback: Optional[Callable[[], None]] = None) -> None:
         """初始化系统托盘管理器
         
         Args:
@@ -25,6 +29,7 @@ class TrayManager:
             show_send_notification_callback (callable): 显示发送通知对话框回调函数
             show_config_dialog_callback (callable): 显示配置对话框回调函数
         """
+        super().__init__()
         logger.debug("初始化系统托盘管理器")
         
         # 回调函数
@@ -34,19 +39,19 @@ class TrayManager:
         self.show_config_dialog_callback = show_config_dialog_callback
         
         # 托盘图标和菜单
-        self.tray_icon = None
-        self.tray_menu = None
+        self.tray_icon: Optional[QSystemTrayIcon] = None
+        self.tray_menu: Optional[QMenu] = None
         
         # 菜单项
-        self.dnd_action = None
+        self.dnd_action: Optional[QAction] = None
         
         # 加载配置
-        self.config = load_config()
-        self.notification_title = self.config.get("notification_title", "911 呼唤群")
+        self.config: Dict[str, Union[str, float, int, bool, None]] = load_config()
+        self.notification_title: str = str(self.config.get("notification_title", "911 呼唤群"))
         
         logger.debug("系统托盘管理器初始化完成")
         
-    def create_tray_icon(self):
+    def create_tray_icon(self) -> bool:
         """创建系统托盘图标
         
         Returns:
@@ -89,34 +94,36 @@ class TrayManager:
             logger.error(f"创建系统托盘图标时出错: {e}")
             return False
             
-    def _set_tray_icon(self):
+    def _set_tray_icon(self) -> None:
         """设置托盘图标"""
         try:
             logger.debug("设置托盘图标")
             
             # 加载图标，传递当前配置以确保正确加载自定义图标
             icon = load_icon(self.config)
-            if icon and not icon.isNull():
+            if icon and not icon.isNull() and self.tray_icon:
                 self.tray_icon.setIcon(icon)
                 logger.debug("托盘图标设置成功")
             else:
                 # 使用默认图标
-                self.tray_icon.setIcon(QIcon("notification_icon.png"))
+                if self.tray_icon:
+                    self.tray_icon.setIcon(QIcon("notification_icon.png"))
                 logger.warning("使用默认托盘图标")
         except Exception as e:
             logger.error(f"设置托盘图标时出错: {e}")
             
-    def _set_tooltip(self):
+    def _set_tooltip(self) -> None:
         """设置托盘图标工具提示"""
         try:
             logger.debug("设置托盘图标工具提示")
             tooltip = f"ToastBannerSlider - 监听: {self.notification_title}"
-            self.tray_icon.setToolTip(tooltip)
+            if self.tray_icon:
+                self.tray_icon.setToolTip(tooltip)
             logger.debug(f"托盘图标工具提示设置为: {tooltip}")
         except Exception as e:
             logger.error(f"设置托盘图标工具提示时出错: {e}")
             
-    def update_tooltip(self, notification_title):
+    def update_tooltip(self, notification_title: str) -> None:
         """更新托盘图标提示
         
         Args:
@@ -131,7 +138,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"更新托盘图标提示时出错: {e}")
             
-    def _create_tray_menu(self):
+    def _create_tray_menu(self) -> None:
         """创建托盘菜单"""
         try:
             logger.debug("创建托盘菜单")
@@ -157,7 +164,7 @@ class TrayManager:
             # 免打扰模式切换
             self.dnd_action = QAction("免打扰", self.tray_menu)
             self.dnd_action.setCheckable(True)
-            self.dnd_action.setChecked(self.config.get("do_not_disturb", False))
+            self.dnd_action.setChecked(bool(self.config.get("do_not_disturb", False)))
             self.dnd_action.triggered.connect(self._on_toggle_dnd)
             self.tray_menu.addAction(self.dnd_action)
             
@@ -175,13 +182,14 @@ class TrayManager:
             self.tray_menu.addAction(exit_action)
             
             # 设置托盘图标菜单
-            self.tray_icon.setContextMenu(self.tray_menu)
+            if self.tray_icon:
+                self.tray_icon.setContextMenu(self.tray_menu)
             
             logger.debug("托盘菜单创建成功")
         except Exception as e:
             logger.error(f"创建托盘菜单时出错: {e}")
             
-    def _on_tray_icon_activated(self, reason):
+    def _on_tray_icon_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """处理托盘图标激活事件
         
         Args:
@@ -196,7 +204,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"处理托盘图标激活事件时出错: {e}")
             
-    def _on_show_last_notification(self):
+    def _on_show_last_notification(self) -> None:
         """处理显示最后通知事件"""
         try:
             logger.debug("处理显示最后通知事件")
@@ -205,7 +213,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"处理显示最后通知事件时出错: {e}")
             
-    def _on_send_notification(self):
+    def _on_send_notification(self) -> None:
         """处理发送通知事件"""
         try:
             logger.debug("处理发送通知事件")
@@ -214,7 +222,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"处理发送通知事件时出错: {e}")
             
-    def _on_show_config_dialog(self):
+    def _on_show_config_dialog(self) -> None:
         """处理显示配置对话框事件"""
         try:
             logger.debug("处理显示配置对话框事件")
@@ -223,7 +231,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"处理显示配置对话框事件时出错: {e}")
             
-    def _on_toggle_dnd(self, checked):
+    def _on_toggle_dnd(self, checked: Optional[bool]) -> None:
         """处理免打扰模式切换事件
         
         Args:
@@ -233,17 +241,18 @@ class TrayManager:
             logger.debug(f"处理免打扰模式切换事件: {checked}")
             
             # 更新配置
-            self.config["do_not_disturb"] = checked
-            from config import save_config
-            save_config(self.config)
-            
-            # 显示状态消息
-            status = "已启用" if checked else "已禁用"
-            self.show_message("ToastBannerSlider", f"免打扰模式{status}")
+            if checked is not None:
+                self.config["do_not_disturb"] = checked
+                from config import save_config
+                save_config(self.config)
+                
+                # 显示状态消息
+                status = "已启用" if checked else "已禁用"
+                self.show_message("ToastBannerSlider", f"免打扰模式{status}")
         except Exception as e:
             logger.error(f"处理免打扰模式切换事件时出错: {e}")
             
-    def _is_startup_enabled(self):
+    def _is_startup_enabled(self) -> bool:
         """检查是否已设置开机自启
         
         Returns:
@@ -270,7 +279,7 @@ class TrayManager:
             logger.error(f"检查开机自启设置时出错: {e}")
             return False
             
-    def _on_toggle_startup(self, checked):
+    def _on_toggle_startup(self, checked: Optional[bool]) -> None:
         """处理开机自启切换事件
         
         Args:
@@ -279,7 +288,7 @@ class TrayManager:
         try:
             logger.debug(f"处理开机自启切换事件: {checked}")
             
-            if sys.platform == "win32":
+            if sys.platform == "win32" and checked is not None:
                 import winreg
                 key = winreg.OpenKey(
                     winreg.HKEY_CURRENT_USER,
@@ -307,10 +316,11 @@ class TrayManager:
                     winreg.CloseKey(key)
         except Exception as e:
             logger.error(f"处理开机自启切换事件时出错: {e}")
-            error_msg = "设置开机自启失败" if checked else "取消开机自启失败"
-            self.show_message("ToastBannerSlider", error_msg)
+            if checked is not None:
+                error_msg = "设置开机自启失败" if checked else "取消开机自启失败"
+                self.show_message("ToastBannerSlider", error_msg)
             
-    def _on_exit(self):
+    def _on_exit(self) -> None:
         """处理退出事件"""
         try:
             logger.debug("处理退出事件")
@@ -319,7 +329,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"处理退出事件时出错: {e}")
             
-    def show_message(self, title, message, icon=QSystemTrayIcon.MessageIcon.Information, timeout=3000):
+    def show_message(self, title: str, message: str, icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information, timeout: int = 3000) -> None:
         """显示托盘消息
         
         Args:
@@ -331,10 +341,38 @@ class TrayManager:
         try:
             logger.debug(f"显示托盘消息: {title} - {message}")
             if self.tray_icon and self.tray_icon.isVisible():
+                # 计算基于系统DPI的图标尺寸
+                # 基础尺寸为32像素，根据设备像素比率进行缩放
+                base_size = 32
+                device_pixel_ratio = 1.0
+                
+                # 使用安全的方法获取设备像素比率
+                try:
+                    from PySide6.QtWidgets import QApplication
+                    app = QApplication.instance()
+                    if app is not None:
+                        # 使用getattr安全地获取devicePixelRatio方法
+                        device_pixel_ratio_func = getattr(app, 'devicePixelRatio', None)
+                        if device_pixel_ratio_func is not None:
+                            ratio = device_pixel_ratio_func()
+                            # 确保返回值是数字类型
+                            if isinstance(ratio, (int, float)) and ratio > 0:
+                                device_pixel_ratio = float(ratio)
+                except Exception:
+                    # 如果出现任何异常，使用默认值
+                    pass
+                    
+                icon_size = int(base_size * device_pixel_ratio)
+                
                 # 使用自定义图标，传递当前配置以确保正确加载自定义图标
                 custom_icon = load_icon(self.config)
                 if custom_icon and not custom_icon.isNull():
-                    self.tray_icon.showMessage(title, message, custom_icon, timeout)
+                    # 根据系统DPI缩放比例设置图标尺寸，避免在高分辨率屏幕上模糊
+                    if custom_icon.availableSizes():
+                        scaled_icon = QIcon(custom_icon.pixmap(icon_size, icon_size))
+                        self.tray_icon.showMessage(title, message, scaled_icon, timeout)
+                    else:
+                        self.tray_icon.showMessage(title, message, custom_icon, timeout)
                 else:
                     # 如果没有自定义图标，尝试使用默认资源图标
                     try:
@@ -342,7 +380,12 @@ class TrayManager:
                         if os.path.exists(resource_icon_path):
                             resource_icon = QIcon(resource_icon_path)
                             if not resource_icon.isNull():
-                                self.tray_icon.showMessage(title, message, resource_icon, timeout)
+                                # 根据系统DPI缩放比例设置图标尺寸，避免在高分辨率屏幕上模糊
+                                if resource_icon.availableSizes():
+                                    scaled_icon = QIcon(resource_icon.pixmap(icon_size, icon_size))
+                                    self.tray_icon.showMessage(title, message, scaled_icon, timeout)
+                                else:
+                                    self.tray_icon.showMessage(title, message, resource_icon, timeout)
                             else:
                                 self.tray_icon.showMessage(title, message, icon, timeout)
                         else:
@@ -351,7 +394,12 @@ class TrayManager:
                             if os.path.exists(resource_icon_path):
                                 resource_icon = QIcon(resource_icon_path)
                                 if not resource_icon.isNull():
-                                    self.tray_icon.showMessage(title, message, resource_icon, timeout)
+                                    # 根据系统DPI缩放比例设置图标尺寸，避免在高分辨率屏幕上模糊
+                                    if resource_icon.availableSizes():
+                                        scaled_icon = QIcon(resource_icon.pixmap(icon_size, icon_size))
+                                        self.tray_icon.showMessage(title, message, scaled_icon, timeout)
+                                    else:
+                                        self.tray_icon.showMessage(title, message, resource_icon, timeout)
                                 else:
                                     self.tray_icon.showMessage(title, message, icon, timeout)
                             else:
@@ -361,7 +409,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"显示托盘消息时出错: {e}")
             
-    def hide_tray_icon(self):
+    def hide_tray_icon(self) -> None:
         """隐藏托盘图标"""
         try:
             logger.debug("隐藏托盘图标")
@@ -370,7 +418,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"隐藏托盘图标时出错: {e}")
             
-    def update_config(self):
+    def update_config(self) -> None:
         """更新配置"""
         try:
             logger.debug("更新托盘管理器配置")
@@ -381,7 +429,7 @@ class TrayManager:
             
             # 重新加载配置
             self.config = load_config()
-            self.notification_title = self.config.get("notification_title", "911 呼唤群")
+            self.notification_title = str(self.config.get("notification_title", "911 呼唤群"))
             
             # 如果通知标题发生变化，更新托盘提示
             if old_title != self.notification_title:
@@ -400,7 +448,7 @@ class TrayManager:
         except Exception as e:
             logger.error(f"更新托盘管理器配置时出错: {e}")
             
-    def _update_tray_icon(self):
+    def _update_tray_icon(self) -> None:
         """更新托盘图标"""
         try:
             logger.debug("更新托盘图标")

@@ -1,6 +1,6 @@
 """通知发送模块
 
-该模块用于发送Windows Toast通知，主要用于测试目的。
+该模块用于发送Windows Toast通知，主要用于测试目的，不参与程序的任何功能。
 通过winsdk库创建并发送Toast通知到Windows通知中心。
 """
 
@@ -8,10 +8,11 @@ import winsdk.windows.ui.notifications as notifications
 import winsdk.windows.data.xml.dom as dom
 import sys
 from loguru import logger
+from typing import Optional
 
 
 # 配置日志
-def setup_logger():
+def setup_logger() -> None:
     """配置日志输出格式"""
     logger.remove()
     logger.add(
@@ -49,7 +50,7 @@ def create_toast_xml(title: str, content: str) -> str:
 """
 
 
-def send_toast_notification(title: str, content: str, app_id: str = APP_ID):
+def send_toast_notification(title: str, content: str, app_id: str = APP_ID) -> None:
     """发送Toast通知
     
     Args:
@@ -67,17 +68,19 @@ def send_toast_notification(title: str, content: str, app_id: str = APP_ID):
         toast = notifications.ToastNotification(xml_doc)
         
         # 获取通知管理器并发送通知
-        toast_notifier = notifications.ToastNotificationManager.create_toast_notifier(app_id)
-        toast_notifier.show(toast)
-        
-        logger.info("Toast 横幅通知已发送！")
+        toast_notifier: Optional[notifications.ToastNotifier] = notifications.ToastNotificationManager.create_toast_notifier(app_id)
+        if toast_notifier is not None:
+            toast_notifier.show(toast)
+            logger.info("Toast 横幅通知已发送！")
+        else:
+            logger.error("无法创建 Toast 通知器")
         
     except Exception as e:
         logger.error(f"发送Toast通知失败: {e}")
         raise
 
 
-def main():
+def main() -> None:
     """主函数 - 发送测试通知"""
     setup_logger()
     send_toast_notification(TOAST_TITLE, TOAST_CONTENT)

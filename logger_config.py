@@ -8,9 +8,10 @@ from loguru import logger
 import sys
 import os
 from config import get_config_path
+from typing import Optional, Dict, Union
 
 
-def setup_logger(config=None):
+def setup_logger(config: Optional[Dict[str, Union[str, float, int, bool, None]]] = None) -> str:
     """根据配置设置日志记录器
     
     Args:
@@ -27,6 +28,8 @@ def setup_logger(config=None):
     
     # 获取日志等级，默认为INFO
     log_level = config.get("log_level", "INFO") if config else "INFO"
+    if log_level is None:
+        log_level = "INFO"
     
     # 移除现有的所有处理器
     logger.remove()
@@ -34,7 +37,7 @@ def setup_logger(config=None):
     # 添加标准错误输出处理器
     logger.add(sys.stderr, 
               format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-              level=log_level)  # 终端使用配置的日志级别
+              level=str(log_level))  # 终端使用配置的日志级别
     
     # 添加文件输出处理器，5MB轮转
     # 获取配置文件所在目录作为日志文件目录
@@ -44,10 +47,10 @@ def setup_logger(config=None):
     logger.add(log_file_path, 
               rotation="5 MB", 
               format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", 
-              level=log_level)
+              level=str(log_level))
     
     logger.debug(f"日志记录器已配置，等级: {log_level}")
-    return log_level
+    return str(log_level)
 
 
 # 导出logger对象供其他模块使用

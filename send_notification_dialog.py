@@ -5,17 +5,18 @@
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, 
                                QPushButton, QMessageBox, QGroupBox, QFormLayout,
-                               QSpinBox, QLabel)
+                               QSpinBox, QLabel, QWidget)
 from PySide6.QtCore import Qt
 from logger_config import logger
 from config import load_config
 from icon_manager import load_icon
+from typing import Optional, Callable, Any
 
 
 class SendNotificationDialog(QDialog):
     """发送通知对话框"""
     
-    def __init__(self, send_callback=None, parent=None):
+    def __init__(self, send_callback: Optional[Callable[..., Any]] = None, parent: Optional[QWidget] = None) -> None:
         """初始化发送通知对话框
         
         Args:
@@ -31,7 +32,7 @@ class SendNotificationDialog(QDialog):
         self.resize(400, 300)
         
         # 回调函数
-        self.send_callback = send_callback
+        self.send_callback: Optional[Callable[..., Any]] = send_callback
         
         # 加载配置
         self.config = load_config()
@@ -47,7 +48,7 @@ class SendNotificationDialog(QDialog):
         
         logger.debug("发送通知对话框初始化完成")
         
-    def _set_window_icon(self):
+    def _set_window_icon(self) -> None:
         """设置发送通知对话框窗口图标"""
         try:
             logger.debug("设置发送通知对话框窗口图标")
@@ -66,7 +67,7 @@ class SendNotificationDialog(QDialog):
         except Exception as e:
             logger.error(f"设置发送通知对话框窗口图标时出错: {e}")
             
-    def _create_ui(self):
+    def _create_ui(self) -> None:
         """创建用户界面"""
         try:
             logger.debug("创建发送通知对话框UI")
@@ -128,14 +129,14 @@ class SendNotificationDialog(QDialog):
         except Exception as e:
             logger.error(f"创建发送通知对话框UI时出错: {e}")
             
-    def _connect_signals(self):
+    def _connect_signals(self) -> None:
         """连接信号"""
         try:
             logger.debug("连接发送通知对话框信号")
         except Exception as e:
             logger.error(f"连接发送通知对话框信号时出错: {e}")
             
-    def _on_send(self):
+    def _on_send(self) -> None:
         """处理发送事件"""
         try:
             logger.debug("处理发送事件")
@@ -148,7 +149,7 @@ class SendNotificationDialog(QDialog):
                 
             # 获取设置
             scroll_count = self.scroll_count_spinbox.value()  # 获取滚动次数
-            interval = self.interval_spinbox.value()
+            _interval = self.interval_spinbox.value()  # 读取但不使用间隔时间变量
             
             # 发送通知，传递自定义滚动次数
             if self.send_callback:
@@ -163,7 +164,7 @@ class SendNotificationDialog(QDialog):
             logger.error(f"处理发送事件时出错: {e}")
             QMessageBox.critical(self, "错误", f"发送通知时出错: {e}")
             
-    def _on_cancel(self):
+    def _on_cancel(self) -> None:
         """处理取消事件"""
         try:
             logger.debug("处理取消事件")

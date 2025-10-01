@@ -28,10 +28,8 @@ pip install -r requirements.txt
 ```
 
 依赖库：
-- PySide6 (6.x): 用于构建图形用户界面
-- loguru (0.5.x): 用于日志记录
-- winsdk (1.x): 用于对接 Windows 功能
-- pywin32 (227+): 用于Windows特定功能
+- PySide6: 用于构建图形用户界面
+- loguru: 用于日志记录
 
 ## 使用方法
 

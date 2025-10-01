@@ -8,9 +8,10 @@ import sys
 import uuid
 from PySide6.QtGui import QIcon
 from logger_config import logger
+from typing import Optional, Dict, Any
 
 
-def get_resource_path(relative_path):
+def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，兼容打包后的程序
     
     Args:
@@ -33,7 +34,7 @@ def get_resource_path(relative_path):
     return full_path
 
 
-def get_icons_dir():
+def get_icons_dir() -> Optional[str]:
     """获取图标目录路径
     
     Returns:
@@ -58,7 +59,7 @@ def get_icons_dir():
     return icons_dir
 
 
-def save_custom_icon(icon_path):
+def save_custom_icon(icon_path: str) -> Optional[str]:
     """保存自定义图标，使用UUID重命名以避免冲突
     
     Args:
@@ -98,7 +99,7 @@ def save_custom_icon(icon_path):
         return None
 
 
-def load_icon(config=None):
+def load_icon(config: Optional[Dict[str, Any]] = None) -> QIcon:
     """加载图标
     
     Args:
