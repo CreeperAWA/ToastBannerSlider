@@ -25,8 +25,8 @@ def get_resource_path(relative_path: str) -> str:
         # 打包后的程序
         base_path = os.path.dirname(sys.executable)
     else:
-        # 开发环境
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        # 开发环境，使用sys.argv[0]而不是__file__
+        base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
         
     # 构建完整路径
     full_path = os.path.join(base_path, relative_path)
@@ -41,7 +41,12 @@ def get_icons_dir() -> Optional[str]:
         str: 图标目录的绝对路径，如果创建失败则返回None
     """
     # 使用与配置模块相同的方式获取基础目录，避免Nuitka单文件模式下保存到临时文件夹
-    config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    if getattr(sys, 'frozen', False):
+        # 打包后的程序
+        config_dir = os.path.dirname(sys.executable)
+    else:
+        # 开发环境，使用sys.argv[0]而不是__file__
+        config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         
     # 构建图标目录路径
     icons_dir = os.path.join(config_dir, "icons")

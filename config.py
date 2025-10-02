@@ -47,8 +47,8 @@ def get_config_path() -> str:
         # 打包后的程序
         config_dir = os.path.dirname(sys.executable)
     else:
-        # 开发环境
-        config_dir = os.path.dirname(os.path.abspath(__file__))
+        # 开发环境，使用sys.argv[0]而不是__file__
+        config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         
     return os.path.join(config_dir, "config.json")
 
