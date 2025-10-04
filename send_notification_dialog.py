@@ -95,16 +95,9 @@ class SendNotificationDialog(QDialog):
             self.scroll_count_spinbox = QSpinBox()
             self.scroll_count_spinbox.setRange(1, 10)
             self.scroll_count_spinbox.setValue(3)
+            # 设置滚动次数输入框宽度与之前间隔时间输入框宽度一致
+            self.scroll_count_spinbox.setFixedWidth(100)
             settings_layout.addRow("滚动次数:", self.scroll_count_spinbox)
-            
-            # 间隔时间
-            interval_layout = QHBoxLayout()
-            self.interval_spinbox = QSpinBox()
-            self.interval_spinbox.setRange(0, 60)
-            self.interval_spinbox.setValue(0)
-            interval_layout.addWidget(self.interval_spinbox)
-            interval_layout.addWidget(QLabel("秒"))
-            settings_layout.addRow("间隔时间:", interval_layout)
             
             main_layout.addWidget(settings_group)
             
@@ -149,7 +142,6 @@ class SendNotificationDialog(QDialog):
                 
             # 获取设置
             scroll_count = self.scroll_count_spinbox.value()  # 获取滚动次数
-            _interval = self.interval_spinbox.value()  # 读取但不使用间隔时间变量
             
             # 发送通知，传递自定义滚动次数
             if self.send_callback:

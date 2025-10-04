@@ -197,61 +197,82 @@ class ConfigDialog(QDialog):
             group = QGroupBox("显示设置")
             layout = QFormLayout(group)
             
+            # 保存对显示组的引用，以便在样式更改时访问
+            self.display_group = group
+            
+            # 横幅样式
+            self.banner_style_combo = QComboBox()
+            self.banner_style_combo.addItem("默认样式", "default")
+            self.banner_style_combo.addItem("警告样式", "warning")
+            current_style = self.config.get("banner_style", "default")
+            index = self.banner_style_combo.findData(current_style)
+            if index >= 0:
+                self.banner_style_combo.setCurrentIndex(index)
+            layout.addRow("横幅样式:", self.banner_style_combo)
+            
             # 右侧间隔距离
             self.spacing_spinbox = QSpinBox()
             self.spacing_spinbox.setRange(0, 1000)
             self.spacing_spinbox.setValue(int(self.config.get("right_spacing", 150) or 150))
             self.spacing_spinbox.setSuffix(" px")
-            layout.addRow("右侧间隔距离:", self.spacing_spinbox)
+            self.spacing_label = QLabel("右侧间隔距离:")
+            layout.addRow(self.spacing_label, self.spacing_spinbox)
             
             # 字体大小
             self.font_size_spinbox = QDoubleSpinBox()
             self.font_size_spinbox.setRange(1.0, 100.0)
             self.font_size_spinbox.setValue(float(self.config.get("font_size", 48.0) or 48.0))
             self.font_size_spinbox.setSuffix(" px")
-            layout.addRow("字体大小:", self.font_size_spinbox)
+            self.font_size_label = QLabel("字体大小:")
+            layout.addRow(self.font_size_label, self.font_size_spinbox)
             
             # 左侧边距
             self.left_margin_spinbox = QSpinBox()
             self.left_margin_spinbox.setRange(0, 500)
             self.left_margin_spinbox.setValue(int(self.config.get("left_margin", 93) or 93))
             self.left_margin_spinbox.setSuffix(" px")
-            layout.addRow("左侧边距:", self.left_margin_spinbox)
+            self.left_margin_label = QLabel("左侧边距:")
+            layout.addRow(self.left_margin_label, self.left_margin_spinbox)
             
             # 右侧边距
             self.right_margin_spinbox = QSpinBox()
             self.right_margin_spinbox.setRange(0, 500)
             self.right_margin_spinbox.setValue(int(self.config.get("right_margin", 93) or 93))
             self.right_margin_spinbox.setSuffix(" px")
-            layout.addRow("右侧边距:", self.right_margin_spinbox)
+            self.right_margin_label = QLabel("右侧边距:")
+            layout.addRow(self.right_margin_label, self.right_margin_spinbox)
             
             # 图标缩放倍数
             self.icon_scale_spinbox = QDoubleSpinBox()
             self.icon_scale_spinbox.setRange(0.1, 5.0)
             self.icon_scale_spinbox.setValue(float(self.config.get("icon_scale", 1.0) or 1.0))
             self.icon_scale_spinbox.setSingleStep(0.1)
-            layout.addRow("图标缩放倍数:", self.icon_scale_spinbox)
+            self.icon_scale_label = QLabel("图标缩放倍数:")
+            layout.addRow(self.icon_scale_label, self.icon_scale_spinbox)
             
             # 标签文本x轴偏移
             self.label_offset_x_spinbox = QSpinBox()
             self.label_offset_x_spinbox.setRange(-500, 500)
             self.label_offset_x_spinbox.setValue(int(self.config.get("label_offset_x", 0) or 0))
             self.label_offset_x_spinbox.setSuffix(" px")
-            layout.addRow("标签文本x轴偏移:", self.label_offset_x_spinbox)
+            self.label_offset_x_label = QLabel("标签文本x轴偏移:")
+            layout.addRow(self.label_offset_x_label, self.label_offset_x_spinbox)
             
             # 窗口高度
             self.window_height_spinbox = QSpinBox()
             self.window_height_spinbox.setRange(20, 500)
             self.window_height_spinbox.setValue(int(self.config.get("window_height", 128) or 128))
             self.window_height_spinbox.setSuffix(" px")
-            layout.addRow("窗口高度:", self.window_height_spinbox)
+            self.window_height_label = QLabel("窗口高度:")
+            layout.addRow(self.window_height_label, self.window_height_spinbox)
             
             # 标签遮罩宽度
             self.label_mask_width_spinbox = QSpinBox()
             self.label_mask_width_spinbox.setRange(50, 1000)
             self.label_mask_width_spinbox.setValue(int(self.config.get("label_mask_width", 305) or 305))
             self.label_mask_width_spinbox.setSuffix(" px")
-            layout.addRow("标签遮罩宽度:", self.label_mask_width_spinbox)
+            self.label_mask_width_label = QLabel("标签遮罩宽度:")
+            layout.addRow(self.label_mask_width_label, self.label_mask_width_spinbox)
             
             # 横幅间隔
             self.banner_spacing_spinbox = QSpinBox()
@@ -282,13 +303,68 @@ class ConfigDialog(QDialog):
             index = self.scroll_mode_combo.findData(current_mode)
             if index >= 0:
                 self.scroll_mode_combo.setCurrentIndex(index)
+                
             layout.addRow("滚动模式:", self.scroll_mode_combo)
+            
+            # 连接横幅样式变化信号
+            self.banner_style_combo.currentTextChanged.connect(self._on_banner_style_changed)
+            
+            # 初始化时根据当前样式隐藏无效配置
+            self._on_banner_style_changed(self.banner_style_combo.currentText())
             
             return group
         except Exception as e:
             logger.error(f"创建显示设置组时出错: {e}")
             return QGroupBox("显示设置")
             
+    def _on_banner_style_changed(self, style_text: str) -> None:
+        """当横幅样式改变时，隐藏对当前样式无效的配置项
+        
+        Args:
+            style_text: 当前选择的样式文本
+        """
+        # 获取当前选择的样式数据
+        current_style = self.banner_style_combo.currentData()
+        
+        # 对于警告样式，隐藏一些无效的配置项
+        if current_style == "warning":
+            # 隐藏对警告样式无效的配置项
+            self.spacing_spinbox.hide()
+            self.left_margin_spinbox.hide()
+            self.right_margin_spinbox.hide()
+            self.icon_scale_spinbox.hide()
+            self.label_offset_x_spinbox.hide()
+            self.window_height_spinbox.hide()
+            self.label_mask_width_spinbox.hide()
+            self.font_size_spinbox.hide()
+            # 隐藏对应标签
+            self.spacing_label.hide()
+            self.left_margin_label.hide()
+            self.right_margin_label.hide()
+            self.icon_scale_label.hide()
+            self.label_offset_x_label.hide()
+            self.window_height_label.hide()
+            self.label_mask_width_label.hide()
+            self.font_size_label.hide()
+        else:
+            # 对于默认样式，显示所有配置项
+            self.spacing_spinbox.show()
+            self.left_margin_spinbox.show()
+            self.right_margin_spinbox.show()
+            self.icon_scale_spinbox.show()
+            self.label_offset_x_spinbox.show()
+            self.window_height_spinbox.show()
+            self.label_mask_width_spinbox.show()
+            self.font_size_spinbox.show()
+            # 显示对应标签
+            self.spacing_label.show()
+            self.left_margin_label.show()
+            self.right_margin_label.show()
+            self.icon_scale_label.show()
+            self.label_offset_x_label.show()
+            self.window_height_label.show()
+            self.label_mask_width_label.show()
+            self.font_size_label.show()
     def _create_animation_group(self) -> QGroupBox:
         """创建动画设置组
         
@@ -649,6 +725,7 @@ class ConfigDialog(QDialog):
                 "base_vertical_offset": self.base_vertical_offset_spinbox.value(),
                 # 更新横幅透明度的保存逻辑
                 "banner_opacity": self.banner_opacity_spinbox.value(),
+                "banner_style": self.banner_style_combo.currentData(),  # 添加横幅样式配置项
                 "log_level": self.log_level_combo.currentData(),
                 "scroll_mode": self.scroll_mode_combo.currentData(),
                 "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
@@ -688,3 +765,50 @@ class ConfigDialog(QDialog):
             self.reject()
         except Exception as e:
             logger.error(f"处理取消事件时出错: {e}")
+            
+    def _save_config(self) -> bool:
+        """保存配置
+        
+        Returns:
+            bool: 保存成功返回True，失败返回False
+        """
+        try:
+            # 获取当前配置
+            config = load_config()
+            
+            # 更新配置值
+            config["notification_title"] = self.title_edit.text()
+            config["scroll_speed"] = float(self.speed_spinbox.value())
+            config["scroll_count"] = int(self.scroll_count_spinbox.value())
+            config["click_to_close"] = int(self.click_close_spinbox.value())
+            config["right_spacing"] = int(self.spacing_spinbox.value())
+            config["font_size"] = float(self.font_size_spinbox.value())
+            config["left_margin"] = int(self.left_margin_spinbox.value())
+            config["right_margin"] = int(self.right_margin_spinbox.value())
+            config["icon_scale"] = float(self.icon_scale_spinbox.value())
+            config["label_offset_x"] = int(self.label_offset_x_spinbox.value())
+            config["window_height"] = int(self.window_height_spinbox.value())
+            config["label_mask_width"] = int(self.label_mask_width_spinbox.value())
+            config["banner_spacing"] = int(self.banner_spacing_spinbox.value())
+            config["shift_animation_duration"] = int(self.shift_duration_spinbox.value())
+            config["fade_animation_duration"] = int(self.fade_duration_spinbox.value())
+            config["base_vertical_offset"] = int(self.base_vertical_offset_spinbox.value())
+            config["banner_opacity"] = float(self.banner_opacity_spinbox.value())
+            config["scroll_mode"] = self.scroll_mode_combo.currentData()
+            config["log_level"] = self.log_level_combo.currentData()
+            config["ignore_duplicate"] = self.ignore_duplicate_checkbox.isChecked()
+            config["do_not_disturb"] = self.dnd_checkbox.isChecked()
+            config["custom_icon"] = self.icon_edit.text() if self.icon_edit.text() else None
+            config["banner_style"] = self.banner_style_combo.currentData()  # 保存横幅样式
+            
+            # 保存配置
+            success = save_config(config)
+            if success:
+                logger.info("配置保存成功")
+            else:
+                logger.error("配置保存失败")
+                
+            return success
+        except Exception as e:
+            logger.error(f"保存配置时出错: {e}")
+            return False

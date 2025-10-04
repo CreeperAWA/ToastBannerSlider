@@ -516,11 +516,6 @@ class NotificationWindow(QWidget):
             # 设置关闭状态标志
             self._is_closing = True
             
-            logger.debug("停止滚动动画")
-            # 停止滚动动画
-            if self.animation:
-                self.animation.stop()
-                
             # 创建淡出动画
             logger.debug("创建淡出动画")
             if self.fade_out:

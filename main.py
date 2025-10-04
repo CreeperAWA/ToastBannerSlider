@@ -10,13 +10,15 @@ import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
+from warning_banner import WarningBanner  # 导入警告横幅
 from config import load_config, get_config_path
 from logger_config import logger, setup_logger
 from tray_manager import TrayManager
 from notification_listener import NotificationListenerThread
 from config_dialog import ConfigDialog
 from send_notification_dialog import SendNotificationDialog
-from typing import Optional, List, Tuple, Dict, Union, Callable
+from banner_factory import create_banner  # 导入横幅工厂
+from typing import Optional, List, Tuple, Dict, Union, Callable, cast
 
 
 # 程序启动时立即初始化日志系统
@@ -48,12 +50,18 @@ class ConfigWatcher(QObject):
         
     def check_config_change(self) -> None:
         """检查配置文件是否发生变化，如果变化则发出信号"""
-        current_mtime = self._get_mtime()
-        if current_mtime > self.last_mtime:
-            self.last_mtime = current_mtime
-            # 发出配置更改信号（通过调用回调函数实现）
-            if hasattr(self, 'config_changed_callback') and self.config_changed_callback:
-                self.config_changed_callback()
+        try:
+            current_mtime = self._get_mtime()
+            if current_mtime > self.last_mtime:
+                self.last_mtime = current_mtime
+                # 发出配置更改信号（通过调用回调函数实现）
+                if hasattr(self, 'config_changed_callback') and self.config_changed_callback:
+                    self.config_changed_callback()
+        except KeyboardInterrupt:
+            # 正常处理键盘中断信号（Ctrl+C）
+            raise
+        except Exception as e:
+            logger.warning(f"检查配置文件变化时出错：{e}")
 
 
 class ToastBannerManager(QObject):
@@ -72,7 +80,7 @@ class ToastBannerManager(QObject):
             self.app = QApplication(sys.argv)
         
         # 初始化成员变量
-        self.notification_windows: List[NotificationWindow] = []  # 存储当前显示的通知窗口
+        self.notification_windows: List[Union[NotificationWindow, WarningBanner]] = []  # 存储当前显示的通知窗口
         self.last_notification: Optional[str] = None   # 存储最后一条通知内容
         self.config_watcher: Optional[ConfigWatcher] = None
         self.config_timer: Optional[QTimer] = None
@@ -178,9 +186,9 @@ class ToastBannerManager(QObject):
             total_spacing = len(self.notification_windows) * banner_spacing
             
             # 创建并显示新的通知窗口，传递自定义滚动次数
-            logger.debug("创建NotificationWindow实例")
-            window = NotificationWindow(message, vertical_offset=total_existing_height + total_spacing, max_scrolls=max_scrolls)
-            logger.debug("NotificationWindow实例创建完成")
+            logger.debug("创建横幅实例")
+            window = create_banner(message, vertical_offset=total_existing_height + total_spacing, max_scrolls=max_scrolls)
+            logger.debug("横幅实例创建完成")
             
             # 防止程序因最后一个窗口关闭而退出
             # 使用类型注释忽略Pylance错误
@@ -196,7 +204,9 @@ class ToastBannerManager(QObject):
             
             logger.debug("连接窗口关闭信号")
             # 连接窗口关闭信号，以便从列表中移除
-            window.window_closed.connect(self.remove_notification_window)
+            # 注意：WarningBanner可能没有window_closed信号，需要检查
+            if hasattr(window, 'window_closed'):
+                cast(NotificationWindow, window).window_closed.connect(self.remove_notification_window)
             
             # 记录日志
             logger.info(f"显示通知：{message}")
@@ -256,6 +266,13 @@ class ToastBannerManager(QObject):
             if hasattr(window, 'update_vertical_offset'):
                 try:
                     window.update_vertical_offset(new_offset)  # type: ignore
+                except Exception:
+                    pass
+            # 对于WarningBanner，可能需要不同的处理方式
+            elif hasattr(window, 'move'):
+                try:
+                    # WarningBanner使用move方法调整位置
+                    window.move(0, new_offset)
                 except Exception:
                     pass
         
@@ -387,7 +404,8 @@ class ToastBannerManager(QObject):
             try:
                 # 确保窗口正确关闭并清理资源
                 logger.debug("关闭通知窗口")
-                if hasattr(window, 'close_with_animation'):
+                # 检查窗口类型并调用相应的关闭方法
+                if isinstance(window, NotificationWindow) and hasattr(window, 'close_with_animation'):
                     window.close_with_animation()
                 else:
                     window.close()
