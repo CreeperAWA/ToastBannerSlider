@@ -38,6 +38,36 @@ DEFAULT_CONFIG: Dict[str, Union[str, float, int, bool, None]] = {
 }
 
 
+class ConfigManager:
+    """配置管理器 - 管理应用程序配置的加载、保存和访问"""
+    
+    def __init__(self) -> None:
+        """初始化配置管理器"""
+        self.config: Dict[str, Union[str, float, int, bool, None]] = {}
+        self.config_path: str = get_config_path()
+        self.load_config()
+        
+    def load_config(self) -> None:
+        """加载配置"""
+        self.config = load_config()
+        
+    def get_config(self) -> Dict[str, Union[str, float, int, bool, None]]:
+        """获取当前配置
+        
+        Returns:
+            dict: 当前配置字典
+        """
+        return self.config.copy()
+        
+    def get_config_path(self) -> str:
+        """获取配置文件路径
+        
+        Returns:
+            str: 配置文件路径
+        """
+        return self.config_path
+
+
 def get_config_path() -> str:
     """获取配置文件路径
     
@@ -109,4 +139,4 @@ def save_config(config: Dict[str, Union[str, float, int, bool, None]]) -> bool:
 
 
 # 导出默认配置供其他模块使用
-__all__ = ['DEFAULT_CONFIG', 'load_config', 'save_config', 'get_config_path']
+__all__ = ['DEFAULT_CONFIG', 'load_config', 'save_config', 'get_config_path', 'ConfigManager']

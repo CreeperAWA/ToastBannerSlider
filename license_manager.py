@@ -46,6 +46,9 @@ class LicenseManager:
         self.license_file = "License.key"
         self.public_key_file = get_resource_path("public.pem")
         self.private_key_file = "private.pem"
+        # 添加硬件信息缓存
+        self._hardware_info: Optional[Dict[str, str]] = None
+        self._hardware_key: Optional[str] = None
         
     def get_hardware_info(self) -> Dict[str, str]:
         """获取硬件信息
@@ -53,6 +56,10 @@ class LicenseManager:
         Returns:
             Dict[str, str]: 包含CPU、硬盘和主板序列号的字典
         """
+        # 如果已经缓存了硬件信息，直接返回
+        if self._hardware_info is not None:
+            return self._hardware_info
+            
         hardware_info = {
             "cpu": "unknown",
             "disk": "unknown",
@@ -98,6 +105,9 @@ class LicenseManager:
             
         # 打印获取到的硬件信息用于调试
         logger.info(f"最终硬件信息: CPU={hardware_info['cpu']}, 硬盘={hardware_info['disk']}, 主板={hardware_info['motherboard']}")
+        
+        # 缓存硬件信息
+        self._hardware_info = hardware_info
         return hardware_info
     
     def generate_hardware_key(self) -> str:
@@ -106,31 +116,33 @@ class LicenseManager:
         Returns:
             str: 硬件标识符
         """
+        # 如果已经缓存了硬件标识符，直接返回
+        if self._hardware_key is not None:
+            return self._hardware_key
+            
         hardware_info = self.get_hardware_info()
         hardware_string = f"{hardware_info['cpu']}|{hardware_info['disk']}|{hardware_info['motherboard']}"
-        return self.multi_layer_hash(hardware_string)
+        hardware_key = self.multi_layer_hash(hardware_string)
+        
+        # 缓存硬件标识符
+        self._hardware_key = hardware_key
+        return hardware_key
     
     def multi_layer_hash(self, data: str) -> str:
         """多层哈希计算
-        
         Args:
             data: 输入数据
-            
         Returns:
             str: 多层哈希结果
         """
         # 第一层：SHA512
         sha512_hash = hashlib.sha512(data.encode('utf-8')).hexdigest()
-        
-        # 第二层：再次SHA512
-        double_sha512 = hashlib.sha512(sha512_hash.encode('utf-8')).hexdigest()
-        
-        # 第三层：MD5
-        md5_hash = hashlib.md5(double_sha512.encode('utf-8')).hexdigest()
-        
-        # 第四层：SHA256
-        final_hash = hashlib.sha256(md5_hash.encode('utf-8')).hexdigest()
-        
+        # 第二层：SHA384
+        sha384_hash = hashlib.sha384(sha512_hash.encode('utf-8')).hexdigest()
+        # 第三层：SHA3_512
+        sha3_512_hash = hashlib.sha3_512(sha384_hash.encode('utf-8')).hexdigest()
+        # 第四层：SHA3_384
+        final_hash = hashlib.sha3_384(sha3_512_hash.encode('utf-8')).hexdigest()
         return final_hash
     
     def load_public_key(self):
@@ -266,7 +278,7 @@ class LicenseManager:
                 logger.error("许可证已过期")
                 return False
             
-            # 验证硬件信息
+            # 验证硬件信息（使用缓存的硬件标识符）
             current_hardware_key = self.generate_hardware_key()
             if hardware_key != current_hardware_key:
                 logger.error("硬件信息不匹配")
@@ -291,16 +303,14 @@ class LicenseManager:
                     ),
                     hashes.SHA512()
                 )
-                logger.info("许可证签名验证成功")
+                logger.info("许可证验证成功")
+                return True
             except Exception as e:
                 logger.error(f"许可证签名验证失败: {e}")
                 return False
-            
-            logger.info("许可证验证成功")
-            return True
-            
+                
         except Exception as e:
-            logger.error(f"许可证验证失败: {e}")
+            logger.error(f"许可证验证过程中发生错误: {e}")
             return False
     
     def create_license_info_dialog(self) -> 'LicenseInfoDialog':

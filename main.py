@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
 from warning_banner import WarningBanner  # 导入警告横幅
-from config import load_config, get_config_path
+from config import load_config, ConfigManager
 from logger_config import logger, setup_logger
 from tray_manager import TrayManager
 from notification_listener import NotificationListenerThread
@@ -19,51 +19,19 @@ from config_dialog import ConfigDialog
 from send_notification_dialog import SendNotificationDialog
 from banner_factory import create_banner  # 导入横幅工厂
 from license_manager import LicenseManager  # 导入许可证管理器
-from typing import Optional, List, Tuple, Dict, Union, Callable, cast
+from typing import Optional, List, Tuple, Union, Callable, cast, Dict
 
-# 导入ConfigManager类
-class ConfigManager:
-    """配置管理器 - 管理应用程序配置的加载、保存和访问"""
+def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: Dict[str, str], hardware_key: str):
+    """显示许可证错误信息并退出程序
     
-    def __init__(self) -> None:
-        """初始化配置管理器"""
-        self.config: Dict[str, Union[str, float, int, bool, None]] = {}
-        self.config_path: str = get_config_path()
-        self.load_config()
-        
-    def load_config(self) -> None:
-        """加载配置"""
-        self.config = load_config()
-        
-    def get_config(self) -> Dict[str, Union[str, float, int, bool, None]]:
-        """获取当前配置
-        
-        Returns:
-            dict: 当前配置字典
-        """
-        return self.config.copy()
-        
-    def get_config_path(self) -> str:
-        """获取配置文件路径
-        
-        Returns:
-            str: 配置文件路径
-        """
-        return self.config_path
-
-# 程序启动时立即初始化日志系统
-config = load_config()
-setup_logger(config)
-
-def show_license_info_and_exit():
-    """显示许可证错误信息并退出程序"""
-    license_manager = LicenseManager()
-    hardware_info = license_manager.get_hardware_info()
-    hardware_key = license_manager.generate_hardware_key()
-
+    Args:
+        license_manager: 许可证管理器实例
+        hardware_info: 已获取的硬件信息
+        hardware_key: 已生成的硬件标识
+    """
     # 创建并显示错误消息框
     msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Critical)
+    msg_box.setIcon(QMessageBox.Icon.Critical)
     msg_box.setWindowTitle("许可证错误")
     
     # 构造机器码信息
@@ -93,12 +61,12 @@ def show_license_info_and_exit():
     msg_box.setText(message)
     
     # 添加复制按钮
-    copy_button = msg_box.addButton("复制机器码", QMessageBox.ActionRole)
-    msg_box.setStandardButtons(QMessageBox.Ok)
-    msg_box.setDefaultButton(QMessageBox.Ok)
+    copy_button = msg_box.addButton("复制机器码", QMessageBox.ButtonRole.ActionRole)
+    msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    msg_box.setDefaultButton(QMessageBox.StandardButton.Ok)
     
     # 显示对话框并处理按钮点击事件
-    result = msg_box.exec()
+    msg_box.exec()
     
     if msg_box.clickedButton() == copy_button:
         # 复制机器码到剪贴板
@@ -107,7 +75,7 @@ def show_license_info_and_exit():
         
         # 显示复制成功的提示
         success_msg = QMessageBox()
-        success_msg.setIcon(QMessageBox.Information)
+        success_msg.setIcon(QMessageBox.Icon.Information)
         success_msg.setWindowTitle("复制成功")
         success_msg.setText("机器码已复制到剪贴板！")
         success_msg.exec()
@@ -118,15 +86,24 @@ def show_license_info_and_exit():
     sys.exit(1)
 
 
+# 程序启动时先加载配置，再初始化日志系统
+config = load_config()
+setup_logger(config)
+
 # 程序启动时进行许可证验证（仅检查，不处理UI）
 license_manager = LicenseManager()
+# 预先获取硬件信息，避免重复加载
+hardware_info = license_manager.get_hardware_info()
+hardware_key = license_manager.generate_hardware_key()
+
 if not license_manager.verify_license():
     logger.error("许可证验证失败，程序无法启动。")
     # 初始化Qt应用程序以显示消息框
     app = QApplication(sys.argv)
-    show_license_info_and_exit()
+    # 传递已获取的硬件信息，避免重复加载
+    show_license_info_and_exit(license_manager, hardware_info, hardware_key)
 
-
+# 许可证验证通过，继续执行主程序逻辑
 class ConfigWatcher(QObject):
     """配置文件观察者 - 监听配置文件变化并发出信号"""
     
@@ -158,6 +135,19 @@ class ConfigWatcher(QObject):
     def check_config_change(self) -> None:
         """检查配置文件是否发生变化，如果变化则发出信号"""
         try:
+            # 首先检查必要的对象是否存在
+            if not hasattr(self, 'config_manager') or not self.config_manager:
+                logger.warning("ConfigWatcher: ConfigManager实例不存在")
+                return
+                
+            # 更新配置文件路径（以防配置文件被移动）
+            new_config_path = self.config_manager.get_config_path()
+            if new_config_path != self.config_path:
+                logger.info(f"检测到配置文件路径变更: {self.config_path} -> {new_config_path}")
+                self.config_path = new_config_path
+                self.last_mtime = self._get_mtime()  # 重置最后修改时间
+                return
+                
             current_mtime = self._get_mtime()
             if current_mtime > self.last_mtime:
                 self.last_mtime = current_mtime
@@ -199,14 +189,21 @@ class ToastBannerManager(QObject):
         self._send_dialog: Optional[SendNotificationDialog] = None
         self.message_history: List[Tuple[str, float]] = []
         self.has_notifications: bool = False
+        self.is_initialized: bool = False
         
-        # 直接从 ConfigManager 获取初始配置
-        self.config = config_manager.get_config()
-        
-        # 初始化UI
-        self.init_ui()
-        
-        logger.info("ToastBannerSlider初始化完成")
+        try:
+            # 直接从 ConfigManager 获取初始配置
+            self.config = config_manager.get_config()
+            
+            # 初始化UI
+            self.init_ui()
+            
+            self.is_initialized = True
+            logger.info("ToastBannerSlider初始化完成")
+            
+        except Exception as e:
+            logger.error(f"ToastBannerManager初始化失败: {e}", exc_info=True)
+            raise
         
     def init_ui(self) -> None:
         """初始化用户界面"""
@@ -455,8 +452,10 @@ class ToastBannerManager(QObject):
     def update_config(self) -> None:
         """更新配置"""
         try:
-            logger.debug("更新配置")
+            logger.debug("开始更新配置")
+            
             # 从 ConfigManager 重新加载配置
+            old_config = self.config.copy() if self.config else {}
             self.config = self.config_manager.get_config()
             logger.info("配置已更新")
             
@@ -467,17 +466,29 @@ class ToastBannerManager(QObject):
             if self.tray_manager:
                 self.tray_manager.update_config()
                 
+            # 检查关键配置项是否发生变化
+            old_title = old_config.get("notification_title", "911 呼唤群")
+            new_title = self.config.get("notification_title", "911 呼唤群")
+            if old_title != new_title and self.tray_manager:
+                logger.info(f"配置已更新，监听标题从 '{old_title}' 更改为 '{new_title}'")
+                self.tray_manager.update_tooltip(new_title)
+            
             # 更新所有现有的通知窗口
             for window in self.notification_windows:
                 # 使用类型安全的方法调用update_config
                 if hasattr(window, 'update_config'):
                     try:
                         window.update_config(self.config)  # type: ignore
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.error(f"更新通知窗口配置时出错: {e}")
+                        
+            # 更新窗口位置（如果高度或间距发生变化）
+            if (old_config.get("window_height") != self.config.get("window_height") or 
+                old_config.get("banner_spacing") != self.config.get("banner_spacing")):
+                self.update_window_positions()
                     
         except Exception as e:
-            logger.error(f"更新配置时出错：{e}")
+            logger.error(f"更新配置时出错：{e}", exc_info=True)
     
     def _delayed_create_tray_icon(self) -> None:
         """延迟创建托盘图标"""
@@ -572,11 +583,14 @@ class ToastBannerManager(QObject):
         for i, window in enumerate(self.notification_windows[:]):
             try:
                 logger.debug(f"清理通知窗口 {i+1}")
-                # 使用公共方法替代私有方法调用
-                if hasattr(window, 'close'):
+                # 检查窗口类型并使用适当的方法关闭
+                if isinstance(window, NotificationWindow) and hasattr(window, 'close_with_animation'):
+                    window.close_with_animation()
+                elif hasattr(window, 'close'):
                     window.close()
                 else:
-                    window.close()
+                    # 最后尝试直接删除
+                    del window
             except Exception as e:
                 logger.error(f"清理通知窗口时出错: {e}")
         
@@ -589,6 +603,19 @@ class ToastBannerManager(QObject):
                 logger.warning("监听线程未能正常退出，正在强制终止...")
                 self.listener_thread.terminate()
                 self.listener_thread.wait(1000)
+        
+        # 停止配置定时器
+        if self.config_timer:
+            self.config_timer.stop()
+            self.config_timer = None
+            
+        # 清理配置观察者
+        self.config_watcher = None
+        
+        # 清理托盘管理器
+        if self.tray_manager:
+            self.tray_manager.hide_tray_icon()
+            self.tray_manager = None
             
         logger.info("应用程序资源清理完成")
 
@@ -625,14 +652,8 @@ def main():
     # 初始化配置管理器
     config_manager = ConfigManager()
 
-    # 验证许可证
-    license_manager = LicenseManager()
-    if not license_manager.verify_license():
-        logger.error("许可证验证失败，程序无法启动。")
-        show_license_info_and_exit()
-        return
-
     # 此时所有依赖项都已准备就绪，可以安全创建主管理器
+    # 注意：许可证验证已在程序启动初期完成，此处无需重复验证
     manager = ToastBannerManager(app, config_manager)
     exit_code = manager.run()
     sys.exit(exit_code)
