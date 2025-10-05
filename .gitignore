@@ -166,3 +166,5 @@ license_generator_ui.dist
 license_generator_ui.onefile-build
 ToastBannerSliderLicenseGenerator.exe
 license_generator_ui.exe
+private.pem
+License.key
