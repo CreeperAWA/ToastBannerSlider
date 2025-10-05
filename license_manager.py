@@ -384,7 +384,7 @@ class LicenseInfoDialog(QDialog):
         info_layout.addWidget(self.licensee_value, 0, 1, Qt.AlignLeft)
         
         # 状态
-        status_label = QLabel("状态:")
+        status_label = QLabel("许可状态:")
         status_label.setStyleSheet("font-weight: bold; color: #34495e;")
         info_layout.addWidget(status_label, 1, 0, Qt.AlignLeft)
         
