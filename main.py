@@ -7,7 +7,7 @@
 import sys
 import time
 import os
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
 from warning_banner import WarningBanner  # 导入警告横幅
@@ -18,20 +18,127 @@ from notification_listener import NotificationListenerThread
 from config_dialog import ConfigDialog
 from send_notification_dialog import SendNotificationDialog
 from banner_factory import create_banner  # 导入横幅工厂
+from license_manager import LicenseManager  # 导入许可证管理器
 from typing import Optional, List, Tuple, Dict, Union, Callable, cast
 
+# 导入ConfigManager类
+class ConfigManager:
+    """配置管理器 - 管理应用程序配置的加载、保存和访问"""
+    
+    def __init__(self) -> None:
+        """初始化配置管理器"""
+        self.config: Dict[str, Union[str, float, int, bool, None]] = {}
+        self.config_path: str = get_config_path()
+        self.load_config()
+        
+    def load_config(self) -> None:
+        """加载配置"""
+        self.config = load_config()
+        
+    def get_config(self) -> Dict[str, Union[str, float, int, bool, None]]:
+        """获取当前配置
+        
+        Returns:
+            dict: 当前配置字典
+        """
+        return self.config.copy()
+        
+    def get_config_path(self) -> str:
+        """获取配置文件路径
+        
+        Returns:
+            str: 配置文件路径
+        """
+        return self.config_path
 
 # 程序启动时立即初始化日志系统
 config = load_config()
 setup_logger(config)
 
+def show_license_info_and_exit():
+    """显示许可证错误信息并退出程序"""
+    license_manager = LicenseManager()
+    hardware_info = license_manager.get_hardware_info()
+    hardware_key = license_manager.generate_hardware_key()
+
+    # 创建并显示错误消息框
+    msg_box = QMessageBox()
+    msg_box.setIcon(QMessageBox.Critical)
+    msg_box.setWindowTitle("许可证错误")
+    
+    # 构造机器码信息
+    machine_code = f"""CPU序列号: {hardware_info['cpu']}
+硬盘序列号: {hardware_info['disk']}
+主板序列号: {hardware_info['motherboard']}
+
+硬件标识: {hardware_key}"""
+    
+    # 在日志中输出机器码信息
+    logger.info("许可证验证失败，机器码信息如下：")
+    logger.info(f"CPU序列号: {hardware_info['cpu']}")
+    logger.info(f"硬盘序列号: {hardware_info['disk']}")
+    logger.info(f"主板序列号: {hardware_info['motherboard']}")
+    logger.info(f"硬件标识: {hardware_key}")
+    
+    # 显示消息
+    message = f"""许可证验证失败，程序无法启动！
+
+请将以下机器码信息提供给开发者以获取有效许可证：
+
+{machine_code}
+
+点击"复制"按钮将机器码复制到剪贴板。
+"""
+    
+    msg_box.setText(message)
+    
+    # 添加复制按钮
+    copy_button = msg_box.addButton("复制机器码", QMessageBox.ActionRole)
+    msg_box.setStandardButtons(QMessageBox.Ok)
+    msg_box.setDefaultButton(QMessageBox.Ok)
+    
+    # 显示对话框并处理按钮点击事件
+    result = msg_box.exec()
+    
+    if msg_box.clickedButton() == copy_button:
+        # 复制机器码到剪贴板
+        clipboard = QApplication.clipboard()
+        clipboard.setText(f"CPU: {hardware_info['cpu']}\nDisk: {hardware_info['disk']}\nMotherboard: {hardware_info['motherboard']}\nHardware Key: {hardware_key}")
+        
+        # 显示复制成功的提示
+        success_msg = QMessageBox()
+        success_msg.setIcon(QMessageBox.Information)
+        success_msg.setWindowTitle("复制成功")
+        success_msg.setText("机器码已复制到剪贴板！")
+        success_msg.exec()
+        
+        # 重新显示原始对话框
+        msg_box.exec()
+    
+    sys.exit(1)
+
+
+# 程序启动时进行许可证验证（仅检查，不处理UI）
+license_manager = LicenseManager()
+if not license_manager.verify_license():
+    logger.error("许可证验证失败，程序无法启动。")
+    # 初始化Qt应用程序以显示消息框
+    app = QApplication(sys.argv)
+    show_license_info_and_exit()
+
 
 class ConfigWatcher(QObject):
     """配置文件观察者 - 监听配置文件变化并发出信号"""
     
-    def __init__(self) -> None:
+    def __init__(self, config_manager: ConfigManager) -> None:
+        """初始化配置观察者
+        
+        Args:
+            config_manager: 用于获取配置路径的配置管理器
+        """
         super().__init__()
-        self.config_path = get_config_path()
+        self.config_manager = config_manager
+        self.config_path = config_manager.get_config_path()
         self.last_mtime = self._get_mtime()
         self.config_changed_callback: Optional[Callable[[], None]] = None
         
@@ -67,29 +174,34 @@ class ConfigWatcher(QObject):
 class ToastBannerManager(QObject):
     """Toast横幅通知管理器 - 控制整个应用程序的生命周期和核心功能"""
     
-    def __init__(self, parent: Optional[QObject] = None) -> None:
-        """初始化Toast横幅管理器"""
+    def __init__(self, app: QApplication, config_manager: ConfigManager, parent: Optional[QObject] = None) -> None:
+        """初始化Toast横幅管理器
+        
+        Args:
+            app: QApplication实例
+            config_manager: 配置管理器实例
+            parent: 父对象
+        """
         super().__init__(parent)
         logger.info("正在启动ToastBannerSlider...")
         
-        # 创建Qt应用程序实例
-        app_instance = QApplication.instance()
-        if app_instance is not None:
-            self.app = app_instance
-        else:
-            self.app = QApplication(sys.argv)
+        # 使用传入的QApplication和ConfigManager实例
+        self.app = app
+        self.config_manager = config_manager
         
         # 初始化成员变量
-        self.notification_windows: List[Union[NotificationWindow, WarningBanner]] = []  # 存储当前显示的通知窗口
-        self.last_notification: Optional[str] = None   # 存储最后一条通知内容
+        self.notification_windows: List[Union[NotificationWindow, WarningBanner]] = []
+        self.last_notification: Optional[str] = None
         self.config_watcher: Optional[ConfigWatcher] = None
         self.config_timer: Optional[QTimer] = None
         self.listener_thread: Optional[NotificationListenerThread] = None
         self.tray_manager: Optional[TrayManager] = None
-        self._send_dialog: Optional[SendNotificationDialog] = None  # 用于保持发送通知对话框的引用
+        self._send_dialog: Optional[SendNotificationDialog] = None
         self.message_history: List[Tuple[str, float]] = []
         self.has_notifications: bool = False
-        self.config: Dict[str, Union[str, float, int, bool, None]] = {}
+        
+        # 直接从 ConfigManager 获取初始配置
+        self.config = config_manager.get_config()
         
         # 初始化UI
         self.init_ui()
@@ -98,16 +210,15 @@ class ToastBannerManager(QObject):
         
     def init_ui(self) -> None:
         """初始化用户界面"""
-        # 初始化消息历史记录和通知状态
         self.message_history = []
         self.has_notifications = False
         
-        # 创建并启动配置文件观察者
-        self.config_watcher = ConfigWatcher()
+        # 创建并启动配置文件观察者，传递 ConfigManager 实例
+        self.config_watcher = ConfigWatcher(self.config_manager)
         self.config_watcher.config_changed_callback = self.update_config
         self.config_timer = QTimer()
         self.config_timer.timeout.connect(self.config_watcher.check_config_change)
-        self.config_timer.start(1000)  # 每秒检查一次配置文件变化
+        self.config_timer.start(1000)
         
         # 创建系统托盘管理器
         self.tray_manager = TrayManager(
@@ -122,11 +233,8 @@ class ToastBannerManager(QObject):
         self.listener_thread.notification_received.connect(self.show_notification)
         self.listener_thread.start()
         
-        # 延迟创建托盘图标，确保GUI环境完全初始化
-        QTimer.singleShot(1000, self._delayed_create_tray_icon)  # 减少延迟时间
-        
-        # 加载初始配置
-        self.config = load_config()
+        # 延迟创建托盘图标
+        QTimer.singleShot(1000, self._delayed_create_tray_icon)
         
         logger.info("主程序UI初始化完成")
         
@@ -348,8 +456,8 @@ class ToastBannerManager(QObject):
         """更新配置"""
         try:
             logger.debug("更新配置")
-            # 重新加载配置
-            self.config = load_config()
+            # 从 ConfigManager 重新加载配置
+            self.config = self.config_manager.get_config()
             logger.info("配置已更新")
             
             # 更新日志等级
@@ -485,44 +593,47 @@ class ToastBannerManager(QObject):
         logger.info("应用程序资源清理完成")
 
 
-def main() -> None:
-    """主函数 - 程序入口点"""
+def main():
+    """主函数"""
+    global app
+    
+    # 初始化日志 (使用默认设置)
+    setup_logger()
+    logger.info("正在启动ToastBannerSlider...")
+
+    # 打印启动信息
     print("=" * 30)
     print("Toast 横幅通知系统")
     print("=" * 30)
     print("正在启动...")
-    
-    # 确保即使在无控制台模式下也能正确创建 QApplication
-    app_instance = QApplication.instance()
-    if not app_instance:
-        app = QApplication(sys.argv)
-    else:
-        app = app_instance
-    
-    # 设置应用程序属性
-    # 添加类型检查以避免Pylance错误
-    if hasattr(app, 'setQuitOnLastWindowClosed') and callable(getattr(app, 'setQuitOnLastWindowClosed', None)):
-        app.setQuitOnLastWindowClosed(False)  # type: ignore
 
-    
-    # 设置应用程序元信息
-    if hasattr(app, 'setApplicationName') and callable(getattr(app, 'setApplicationName', None)):
-        app.setApplicationName("ToastBannerSlider")  # type: ignore
-    if hasattr(app, 'setApplicationDisplayName') and callable(getattr(app, 'setApplicationDisplayName', None)):
-        app.setApplicationDisplayName("Toast Banner Slider")  # type: ignore
-    if hasattr(app, 'setOrganizationName') and callable(getattr(app, 'setOrganizationName', None)):
-        app.setOrganizationName("CreeperAWA")  # type: ignore
-    if hasattr(app, 'setOrganizationDomain') and callable(getattr(app, 'setOrganizationDomain', None)):
-        app.setOrganizationDomain("github.com/CreeperAWA")  # type: ignore
-    
-    # 设置Windows应用程序User Model ID，确保Toast通知显示正确的应用程序名称
+    # 初始化Qt应用程序
+    app = QApplication(sys.argv)
+    app.setApplicationName("ToastBannerSlider")
+    app.setApplicationDisplayName("Toast Banner Slider")
+    app.setOrganizationName("CreeperAWA")
+    app.setOrganizationDomain("github.com/CreeperAWA")
+    app.setQuitOnLastWindowClosed(False)
+
+    # 设置 Windows 应用程序 User Model ID
     try:
         from ctypes import windll
         windll.shell32.SetCurrentProcessExplicitAppUserModelID("ToastBannerSlider")
     except Exception as e:
         logger.warning(f"设置应用程序User Model ID失败: {e}")
-    
-    manager = ToastBannerManager()
+
+    # 初始化配置管理器
+    config_manager = ConfigManager()
+
+    # 验证许可证
+    license_manager = LicenseManager()
+    if not license_manager.verify_license():
+        logger.error("许可证验证失败，程序无法启动。")
+        show_license_info_and_exit()
+        return
+
+    # 此时所有依赖项都已准备就绪，可以安全创建主管理器
+    manager = ToastBannerManager(app, config_manager)
     exit_code = manager.run()
     sys.exit(exit_code)
 

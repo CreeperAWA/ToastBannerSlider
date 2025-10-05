@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject
 from logger_config import logger
 from config import load_config
 from icon_manager import load_icon, get_resource_path
+from license_manager import LicenseManager  # 导入许可证管理器
 from typing import Optional, Callable, Dict, Union
 
 
@@ -44,6 +45,9 @@ class TrayManager(QObject):
         
         # 菜单项
         self.dnd_action: Optional[QAction] = None
+        
+        # 许可证管理器
+        self.license_manager = LicenseManager()
         
         # 加载配置
         self.config: Dict[str, Union[str, float, int, bool, None]] = load_config()
@@ -161,6 +165,11 @@ class TrayManager(QObject):
             config_action.triggered.connect(self._on_show_config_dialog)
             self.tray_menu.addAction(config_action)
             
+            # 许可证信息
+            license_info_action = QAction("许可证信息", self.tray_menu)
+            license_info_action.triggered.connect(self._on_show_license_info)
+            self.tray_menu.addAction(license_info_action)
+            
             # 免打扰模式切换
             self.dnd_action = QAction("免打扰", self.tray_menu)
             self.dnd_action.setCheckable(True)
@@ -204,130 +213,171 @@ class TrayManager(QObject):
         except Exception as e:
             logger.error(f"处理托盘图标激活事件时出错: {e}")
             
-    def _on_show_last_notification(self) -> None:
-        """处理显示最后通知事件"""
+    def _on_show_license_info(self) -> None:
+        """显示许可证信息"""
         try:
-            logger.debug("处理显示最后通知事件")
+            logger.debug("显示许可证信息")
+            dialog = self.license_manager.create_license_info_dialog()
+            dialog.exec()
+        except Exception as e:
+            logger.error(f"显示许可证信息时出错: {e}")
+            
+    def _on_show_last_notification(self) -> None:
+        """显示最后通知"""
+        try:
+            logger.debug("触发显示最后通知")
             if self.show_last_notification_callback:
                 self.show_last_notification_callback()
         except Exception as e:
-            logger.error(f"处理显示最后通知事件时出错: {e}")
+            logger.error(f"显示最后通知时出错: {e}")
             
     def _on_send_notification(self) -> None:
-        """处理发送通知事件"""
+        """发送通知"""
         try:
-            logger.debug("处理发送通知事件")
+            logger.debug("触发发送通知")
             if self.show_send_notification_callback:
                 self.show_send_notification_callback()
         except Exception as e:
-            logger.error(f"处理发送通知事件时出错: {e}")
+            logger.error(f"发送通知时出错: {e}")
             
     def _on_show_config_dialog(self) -> None:
-        """处理显示配置对话框事件"""
+        """显示配置对话框"""
         try:
-            logger.debug("处理显示配置对话框事件")
+            logger.debug("触发显示配置对话框")
             if self.show_config_dialog_callback:
                 self.show_config_dialog_callback()
         except Exception as e:
-            logger.error(f"处理显示配置对话框事件时出错: {e}")
+            logger.error(f"显示配置对话框时出错: {e}")
             
-    def _on_toggle_dnd(self, checked: Optional[bool]) -> None:
-        """处理免打扰模式切换事件
+    def _on_toggle_dnd(self, checked: bool) -> None:
+        """切换免打扰模式
         
         Args:
             checked (bool): 是否启用免打扰模式
         """
         try:
-            logger.debug(f"处理免打扰模式切换事件: {checked}")
+            logger.debug(f"切换免打扰模式: {checked}")
+            self.config["do_not_disturb"] = checked
+            self._save_config()
             
-            # 更新配置
-            if checked is not None:
-                self.config["do_not_disturb"] = checked
-                from config import save_config
-                save_config(self.config)
-                
-                # 显示状态消息
-                status = "已启用" if checked else "已禁用"
-                self.show_message("ToastBannerSlider", f"免打扰模式{status}")
+            # 更新托盘图标
+            self._set_tray_icon()
         except Exception as e:
-            logger.error(f"处理免打扰模式切换事件时出错: {e}")
+            logger.error(f"切换免打扰模式时出错: {e}")
             
-    def _is_startup_enabled(self) -> bool:
-        """检查是否已设置开机自启
-        
-        Returns:
-            bool: 已设置返回True，否则返回False
-        """
-        try:
-            if sys.platform == "win32":
-                import winreg
-                key = winreg.OpenKey(
-                    winreg.HKEY_CURRENT_USER,
-                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-                    0,
-                    winreg.KEY_READ
-                )
-                try:
-                    winreg.QueryValueEx(key, "ToastBannerSlider")
-                    return True
-                except FileNotFoundError:
-                    return False
-                finally:
-                    winreg.CloseKey(key)
-            return False
-        except Exception as e:
-            logger.error(f"检查开机自启设置时出错: {e}")
-            return False
-            
-    def _on_toggle_startup(self, checked: Optional[bool]) -> None:
-        """处理开机自启切换事件
+    def _on_toggle_startup(self, checked: bool) -> None:
+        """切换开机自启
         
         Args:
             checked (bool): 是否启用开机自启
         """
         try:
-            logger.debug(f"处理开机自启切换事件: {checked}")
-            
-            if sys.platform == "win32" and checked is not None:
-                import winreg
-                key = winreg.OpenKey(
-                    winreg.HKEY_CURRENT_USER,
-                    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-                    0,
-                    winreg.KEY_WRITE
-                )
-                
-                try:
-                    if checked:
-                        # 启用开机自启
-                        exe_path = sys.executable
-                        if hasattr(sys, 'frozen'):
-                            # 打包后的程序
-                            winreg.SetValueEx(key, "ToastBannerSlider", 0, winreg.REG_SZ, f'"{exe_path}" --startup')
-                        else:
-                            # 开发环境
-                            winreg.SetValueEx(key, "ToastBannerSlider", 0, winreg.REG_SZ, f'"{exe_path}" "{os.path.join(os.path.dirname(exe_path), "main.py")}" --startup')
-                        self.show_message("ToastBannerSlider", "已设置开机自启")
-                    else:
-                        # 禁用开机自启
-                        winreg.DeleteValue(key, "ToastBannerSlider")
-                        self.show_message("ToastBannerSlider", "已取消开机自启")
-                finally:
-                    winreg.CloseKey(key)
+            logger.debug(f"切换开机自启: {checked}")
+            if checked:
+                self._enable_startup()
+            else:
+                self._disable_startup()
         except Exception as e:
-            logger.error(f"处理开机自启切换事件时出错: {e}")
-            if checked is not None:
-                error_msg = "设置开机自启失败" if checked else "取消开机自启失败"
-                self.show_message("ToastBannerSlider", error_msg)
+            logger.error(f"切换开机自启时出错: {e}")
             
     def _on_exit(self) -> None:
-        """处理退出事件"""
+        """退出程序"""
         try:
-            logger.debug("处理退出事件")
+            logger.debug("触发退出程序")
             if self.notification_callback:
                 self.notification_callback()
         except Exception as e:
-            logger.error(f"处理退出事件时出错: {e}")
+            logger.error(f"退出程序时出错: {e}")
+            
+    def _save_config(self) -> None:
+        """保存配置到文件"""
+        try:
+            logger.debug("保存配置到文件")
+            import json
+            config_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "config.json")
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, ensure_ascii=False, indent=4)
+            logger.debug("配置保存成功")
+        except Exception as e:
+            logger.error(f"保存配置时出错: {e}")
+            
+    def _is_startup_enabled(self) -> bool:
+        """检查是否已启用开机自启
+        
+        Returns:
+            bool: 是否已启用开机自启
+        """
+        try:
+            if sys.platform == "win32":
+                import winreg
+                try:
+                    # 打开启动项注册表
+                    key = winreg.OpenKey(
+                        winreg.HKEY_CURRENT_USER,
+                        r"Software\Microsoft\Windows\CurrentVersion\Run",
+                        0,
+                        winreg.KEY_READ
+                    )
+                    # 尝试读取值
+                    winreg.QueryValueEx(key, "ToastBannerSlider")
+                    winreg.CloseKey(key)
+                    return True
+                except FileNotFoundError:
+                    # 键不存在
+                    return False
+                except Exception as e:
+                    logger.error(f"检查开机自启时出错: {e}")
+                    return False
+            return False
+        except Exception as e:
+            logger.error(f"检查开机自启时出错: {e}")
+            return False
+            
+    def _enable_startup(self) -> None:
+        """启用开机自启"""
+        try:
+            if sys.platform == "win32":
+                import winreg
+                # 获取当前可执行文件路径
+                exe_path = os.path.abspath(sys.argv[0])
+                # 打开或创建启动项注册表
+                key = winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    r"Software\Microsoft\Windows\CurrentVersion\Run",
+                    0,
+                    winreg.KEY_SET_VALUE
+                )
+                # 设置值
+                winreg.SetValueEx(key, "ToastBannerSlider", 0, winreg.REG_SZ, exe_path)
+                winreg.CloseKey(key)
+                logger.debug("开机自启已启用")
+        except Exception as e:
+            logger.error(f"启用开机自启时出错: {e}")
+            
+    def _disable_startup(self) -> None:
+        """禁用开机自启"""
+        try:
+            if sys.platform == "win32":
+                import winreg
+                try:
+                    # 打开启动项注册表
+                    key = winreg.OpenKey(
+                        winreg.HKEY_CURRENT_USER,
+                        r"Software\Microsoft\Windows\CurrentVersion\Run",
+                        0,
+                        winreg.KEY_SET_VALUE
+                    )
+                    # 删除值
+                    winreg.DeleteValue(key, "ToastBannerSlider")
+                    winreg.CloseKey(key)
+                    logger.debug("开机自启已禁用")
+                except FileNotFoundError:
+                    # 键不存在，无需操作
+                    pass
+                except Exception as e:
+                    logger.error(f"禁用开机自启时出错: {e}")
+        except Exception as e:
+            logger.error(f"禁用开机自启时出错: {e}")
             
     def show_message(self, title: str, message: str, icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information, timeout: int = 3000) -> None:
         """显示托盘消息
