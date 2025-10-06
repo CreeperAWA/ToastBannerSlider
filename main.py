@@ -432,6 +432,10 @@ class ToastBannerManager(QObject):
                         window.update_config(self.config)  # type: ignore
                     except Exception as e:
                         logger.error(f"更新窗口配置时出错：{e}")
+            
+            # 更新托盘图标提示文本
+            if self.tray_manager:
+                self.tray_manager.update_config()
                         
             logger.info("配置更新完成")
         except Exception as e:

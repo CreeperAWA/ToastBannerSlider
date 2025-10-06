@@ -184,6 +184,11 @@ def listen_for_notifications(check_interval: int = 5, stop_check: Optional[Calla
                 break
                 
             try:
+                # 每次都重新加载配置，以确保获取最新的监听标题
+                config = load_config()
+                current_target_title = config.get("notification_title", "911 呼唤群")
+                listener.set_target_title(str(current_target_title))
+                
                 # 使用监听器中的目标标题
                 target_title = listener.get_target_title()
                 
@@ -337,6 +342,7 @@ class NotificationListenerThread(QThread):
             logger.debug("更新通知监听线程配置")
             self.config = load_config()
             self.notification_title = str(self.config.get("notification_title", "911 呼唤群"))
+            # 更新全局监听器实例中的目标标题，确保 listen_for_notifications 能使用最新配置
             update_target_title(self.notification_title)
             logger.debug(f"通知监听标题更新为: {self.notification_title}")
         except Exception as e:
