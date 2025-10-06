@@ -7,11 +7,11 @@
 import sys
 import time
 import os
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
 from warning_banner import WarningBanner  # 导入警告横幅
-from config import load_config, ConfigManager
+from config import load_config, get_config_path
 from logger_config import logger, setup_logger
 from tray_manager import TrayManager
 from notification_listener import NotificationListenerThread
@@ -107,15 +107,14 @@ if not license_manager.verify_license():
 class ConfigWatcher(QObject):
     """配置文件观察者 - 监听配置文件变化并发出信号"""
     
-    def __init__(self, config_manager: ConfigManager) -> None:
+    def __init__(self, config_path: str) -> None:
         """初始化配置观察者
         
         Args:
-            config_manager: 用于获取配置路径的配置管理器
+            config_path: 配置文件路径
         """
         super().__init__()
-        self.config_manager = config_manager
-        self.config_path = config_manager.get_config_path()
+        self.config_path = config_path
         self.last_mtime = self._get_mtime()
         self.config_changed_callback: Optional[Callable[[], None]] = None
         
@@ -135,19 +134,6 @@ class ConfigWatcher(QObject):
     def check_config_change(self) -> None:
         """检查配置文件是否发生变化，如果变化则发出信号"""
         try:
-            # 首先检查必要的对象是否存在
-            if not hasattr(self, 'config_manager') or not self.config_manager:
-                logger.warning("ConfigWatcher: ConfigManager实例不存在")
-                return
-                
-            # 更新配置文件路径（以防配置文件被移动）
-            new_config_path = self.config_manager.get_config_path()
-            if new_config_path != self.config_path:
-                logger.info(f"检测到配置文件路径变更: {self.config_path} -> {new_config_path}")
-                self.config_path = new_config_path
-                self.last_mtime = self._get_mtime()  # 重置最后修改时间
-                return
-                
             current_mtime = self._get_mtime()
             if current_mtime > self.last_mtime:
                 self.last_mtime = current_mtime
@@ -164,20 +150,21 @@ class ConfigWatcher(QObject):
 class ToastBannerManager(QObject):
     """Toast横幅通知管理器 - 控制整个应用程序的生命周期和核心功能"""
     
-    def __init__(self, app: QApplication, config_manager: ConfigManager, parent: Optional[QObject] = None) -> None:
+    def __init__(self, app: QApplication, config: Dict[str, Union[str, float, int, bool, None]], parent: Optional[QObject] = None) -> None:
         """初始化Toast横幅管理器
         
         Args:
             app: QApplication实例
-            config_manager: 配置管理器实例
+            config: 配置字典
             parent: 父对象
         """
         super().__init__(parent)
         logger.info("正在启动ToastBannerSlider...")
         
-        # 使用传入的QApplication和ConfigManager实例
+        # 使用传入的QApplication和配置字典
         self.app = app
-        self.config_manager = config_manager
+        self.config = config
+        self.config_path = get_config_path()
         
         # 初始化成员变量
         self.notification_windows: List[Union[NotificationWindow, WarningBanner]] = []
@@ -192,9 +179,6 @@ class ToastBannerManager(QObject):
         self.is_initialized: bool = False
         
         try:
-            # 直接从 ConfigManager 获取初始配置
-            self.config = config_manager.get_config()
-            
             # 初始化UI
             self.init_ui()
             
@@ -210,8 +194,8 @@ class ToastBannerManager(QObject):
         self.message_history = []
         self.has_notifications = False
         
-        # 创建并启动配置文件观察者，传递 ConfigManager 实例
-        self.config_watcher = ConfigWatcher(self.config_manager)
+        # 创建并启动配置文件观察者
+        self.config_watcher = ConfigWatcher(self.config_path)
         self.config_watcher.config_changed_callback = self.update_config
         self.config_timer = QTimer()
         self.config_timer.timeout.connect(self.config_watcher.check_config_change)
@@ -422,71 +406,36 @@ class ToastBannerManager(QObject):
     
     def show_config_dialog(self) -> None:
         """显示配置对话框"""
-        logger.debug("准备显示配置对话框")
-        # 确保不会因为对话框关闭而退出主程序
-        # 使用类型注释忽略Pylance错误
-        if hasattr(self.app, 'setQuitOnLastWindowClosed') and callable(getattr(self.app, 'setQuitOnLastWindowClosed', None)):
-            self.app.setQuitOnLastWindowClosed(False)  # type: ignore
-        old_title = str(self.config.get("notification_title", "911 呼唤群"))
-        dialog = ConfigDialog()
-        logger.debug("ConfigDialog实例已创建")
+        logger.debug("正在显示配置对话框...")
         try:
-            logger.debug("尝试显示配置对话框")
-            result = dialog.exec()  # 使用exec()显示模态对话框
-            logger.debug(f"配置对话框已关闭，返回值: {result}")
-        except AttributeError:
-            # 兼容旧版本PySide/PyQt
-            logger.debug("使用旧版本exec_方法显示配置对话框")
-            result = dialog.exec_()
-            logger.debug(f"配置对话框已关闭，返回值: {result}")
+            dialog = ConfigDialog()
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                # 配置已在_on_ok中保存，重新加载配置
+                self.config = load_config()
+                logger.info("配置已更新")
         except Exception as e:
-            logger.error(f"显示配置对话框时出错: {e}")
-        # 更新配置并刷新托盘图标提示
-        self.update_config()
-        new_title = str(self.config.get("notification_title", "911 呼唤群"))
-        if old_title != new_title and self.tray_manager:
-            logger.info(f"配置已更新，监听标题从 '{old_title}' 更改为 '{new_title}'")
-            # 更新托盘管理器中的监听标题
-            self.tray_manager.update_tooltip(new_title)
+            logger.error(f"显示配置对话框时出错：{e}", exc_info=True)
     
     def update_config(self) -> None:
         """更新配置"""
+        logger.info("检测到配置文件变更，正在重新加载配置...")
         try:
-            logger.debug("开始更新配置")
-            
-            # 从 ConfigManager 重新加载配置
-            old_config = self.config.copy() if self.config else {}
-            self.config = self.config_manager.get_config()
-            logger.info("配置已更新")
+            # 重新加载配置
+            self.config = load_config()
             
             # 更新日志等级
             setup_logger(self.config)
             
-            # 更新托盘管理器
-            if self.tray_manager:
-                self.tray_manager.update_config()
-                
-            # 检查关键配置项是否发生变化
-            old_title = old_config.get("notification_title", "911 呼唤群")
-            new_title = self.config.get("notification_title", "911 呼唤群")
-            if old_title != new_title and self.tray_manager:
-                logger.info(f"配置已更新，监听标题从 '{old_title}' 更改为 '{new_title}'")
-                self.tray_manager.update_tooltip(new_title)
-            
-            # 更新所有现有的通知窗口
+            # 更新所有现有窗口的配置
             for window in self.notification_windows:
-                # 使用类型安全的方法调用update_config
+                # 检查窗口类型并调用相应的方法
                 if hasattr(window, 'update_config'):
                     try:
                         window.update_config(self.config)  # type: ignore
                     except Exception as e:
-                        logger.error(f"更新通知窗口配置时出错: {e}")
+                        logger.error(f"更新窗口配置时出错：{e}")
                         
-            # 更新窗口位置（如果高度或间距发生变化）
-            if (old_config.get("window_height") != self.config.get("window_height") or 
-                old_config.get("banner_spacing") != self.config.get("banner_spacing")):
-                self.update_window_positions()
-                    
+            logger.info("配置更新完成")
         except Exception as e:
             logger.error(f"更新配置时出错：{e}", exc_info=True)
     
@@ -649,12 +598,12 @@ def main():
     except Exception as e:
         logger.warning(f"设置应用程序User Model ID失败: {e}")
 
-    # 初始化配置管理器
-    config_manager = ConfigManager()
+    # 加载配置
+    config = load_config()
 
     # 此时所有依赖项都已准备就绪，可以安全创建主管理器
     # 注意：许可证验证已在程序启动初期完成，此处无需重复验证
-    manager = ToastBannerManager(app, config_manager)
+    manager = ToastBannerManager(app, config)
     exit_code = manager.run()
     sys.exit(exit_code)
 

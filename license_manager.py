@@ -4,26 +4,24 @@
 """
 
 import hashlib
-import hmac
 import os
 import sys
-import json
-import base64
-import subprocess
-import re
-import uuid
 import wmi
 import struct
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-                               QTextEdit, QGroupBox, QGridLayout, QFrame, QSizePolicy)
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor, QPalette
+from PySide6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
+    QFrame, QSizePolicy, QApplication, QWidget
+)
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QFont
 from logger_config import logger
+from config import load_config
+from icon_manager import load_icon
 
 
 def get_resource_path(relative_path):
@@ -217,35 +215,23 @@ class LicenseManager:
             
             # 解析授权对象
             if len(license_content) < offset + 4:
-                return {
-                    "licensee": "许可证格式无效",
-                    "status": "无效",
-                    "expiration": "未知",
-                    "hardware_key": "未知"
-                }
+                logger.error("许可证格式无效：无法解析授权对象长度")
+                return False
                 
             licensee_length = struct.unpack('<I', license_content[offset:offset+4])[0]
             offset += 4
             
             if len(license_content) < offset + licensee_length:
-                return {
-                    "licensee": "许可证格式无效",
-                    "status": "无效",
-                    "expiration": "未知",
-                    "hardware_key": "未知"
-                }
+                logger.error("许可证格式无效：无法解析授权对象内容")
+                return False
                 
             licensee = license_content[offset:offset+licensee_length].decode('utf-8')
             offset += licensee_length
             
             # 解析过期时间
             if len(license_content) < offset + 8:
-                return {
-                    "licensee": "许可证格式无效",
-                    "status": "无效",
-                    "expiration": "未知",
-                    "hardware_key": "未知"
-                }
+                logger.error("许可证格式无效：无法解析过期时间")
+                return False
                 
             expiration_timestamp = struct.unpack('<Q', license_content[offset:offset+8])[0]
             expiration_date = datetime.fromtimestamp(expiration_timestamp)
@@ -265,13 +251,6 @@ class LicenseManager:
                 
             hardware_key = license_content[offset:offset+hardware_key_length].decode('utf-8')
             offset += hardware_key_length
-            
-            # 创建license_info字典用于后续验证
-            license_info = {
-                "licensee": licensee,
-                "expiration": expiration_date.isoformat(),
-                "hardware_key": hardware_key
-            }
             
             # 检查许可证是否过期
             if datetime.now() > expiration_date:
@@ -322,125 +301,27 @@ class LicenseManager:
         return LicenseInfoDialog(self)
 
 
-class LicenseInfoDialog(QDialog):
-    """许可证信息对话框"""
+class LicenseInfoWorker(QThread):
+    """许可证信息获取工作线程"""
+    info_ready = Signal(dict)
     
-    def __init__(self, license_manager: LicenseManager, parent=None) -> None:
-        """初始化许可证信息对话框
-        
-        Args:
-            license_manager: 许可证管理器实例
-            parent: 父窗口
-        """
-        super().__init__(parent)
+    def __init__(self, license_manager):
+        super().__init__()
         self.license_manager = license_manager
-        self.init_ui()
-        self.set_window_properties()
-        
-    def init_ui(self) -> None:
-        """初始化用户界面"""
-        # 设置主布局
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # 标题
-        title_label = QLabel("许可证信息")
-        title_font = QFont()
-        title_font.setPointSize(16)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 15px;")
-        main_layout.addWidget(title_label)
-        
-        # 许可证信息卡片
-        info_card = QFrame()
-        info_card.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        info_card.setStyleSheet("""
-            QFrame {
-                background-color: #ffffff;
-                border: 1px solid #bdc3c7;
-                border-radius: 8px;
-                padding: 15px;
-            }
-        """)
-        
-        info_layout = QGridLayout(info_card)
-        info_layout.setSpacing(10)
-        info_layout.setContentsMargins(15, 15, 15, 15)
-        
-        # 获取许可证信息
-        license_info = self.get_license_info()
-        
-        # 授权对象
-        licensee_label = QLabel("授权对象:")
-        licensee_label.setStyleSheet("font-weight: bold; color: #34495e;")
-        info_layout.addWidget(licensee_label, 0, 0, Qt.AlignLeft)
-        
-        self.licensee_value = QLabel(license_info.get("licensee", "未知"))
-        self.licensee_value.setStyleSheet("color: #2c3e50;")
-        self.licensee_value.setWordWrap(True)
-        info_layout.addWidget(self.licensee_value, 0, 1, Qt.AlignLeft)
-        
-        # 状态
-        status_label = QLabel("许可状态:")
-        status_label.setStyleSheet("font-weight: bold; color: #34495e;")
-        info_layout.addWidget(status_label, 1, 0, Qt.AlignLeft)
-        
-        self.status_value = QLabel(license_info.get("status", "未知"))
-        status_color = "#27ae60" if license_info.get("status") == "有效" else "#e74c3c"
-        self.status_value.setStyleSheet(f"color: {status_color}; font-weight: bold;")
-        info_layout.addWidget(self.status_value, 1, 1, Qt.AlignLeft)
-        
-        # 授权截止时间
-        expiration_label = QLabel("授权截止:")
-        expiration_label.setStyleSheet("font-weight: bold; color: #34495e;")
-        info_layout.addWidget(expiration_label, 2, 0, Qt.AlignLeft)
-        
-        self.expiration_value = QLabel(license_info.get("expiration", "未知"))
-        self.expiration_value.setStyleSheet("color: #2c3e50;")
-        info_layout.addWidget(self.expiration_value, 2, 1, Qt.AlignLeft)
-        
-        # 硬件标识
-        hardware_label = QLabel("硬件标识:")
-        hardware_label.setStyleSheet("font-weight: bold; color: #34495e;")
-        info_layout.addWidget(hardware_label, 3, 0, Qt.AlignLeft)
-        
-        # 显示硬件标识的前64个字符并添加省略号
-        hardware_key = license_info.get("hardware_key", "未知")
-        display_hardware = hardware_key[:64] + "..." if len(hardware_key) > 64 else hardware_key
-        self.hardware_value = QLabel(display_hardware)
-        self.hardware_value.setStyleSheet("color: #2c3e50;")
-        self.hardware_value.setWordWrap(True)
-        info_layout.addWidget(self.hardware_value, 3, 1, Qt.AlignLeft)
-        
-        main_layout.addWidget(info_card)
-        
-        # 按钮区域
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        close_button = QPushButton("关闭")
-        close_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
-        close_button.clicked.connect(self.accept)
-        button_layout.addWidget(close_button)
-        
-        main_layout.addLayout(button_layout)
-        self.setLayout(main_layout)
-        
+    
+    def run(self):
+        try:
+            license_info = self.get_license_info()
+            self.info_ready.emit(license_info)
+        except Exception as e:
+            logger.error(f"获取许可证信息时出错: {e}")
+            self.info_ready.emit({
+                "licensee": "获取失败",
+                "status": "无效",
+                "expiration": "未知",
+                "hardware_key": "未知"
+            })
+    
     def get_license_info(self) -> Dict[str, str]:
         """获取许可证信息"""
         try:
@@ -474,7 +355,7 @@ class LicenseInfoDialog(QDialog):
             # 解析授权对象
             if len(license_content) < offset + 4:
                 return {
-                    "licensee": "解析失败",
+                    "licensee": "许可证格式无效",
                     "status": "无效",
                     "expiration": "未知",
                     "hardware_key": "未知"
@@ -485,7 +366,7 @@ class LicenseInfoDialog(QDialog):
             
             if len(license_content) < offset + licensee_length:
                 return {
-                    "licensee": "解析失败",
+                    "licensee": "许可证格式无效",
                     "status": "无效",
                     "expiration": "未知",
                     "hardware_key": "未知"
@@ -542,24 +423,289 @@ class LicenseInfoDialog(QDialog):
             }
             
         except Exception as e:
+            logger.error(f"解析许可证信息时出错: {e}")
             return {
                 "licensee": "无法解析许可证信息",
                 "status": "无效",
                 "expiration": "未知",
                 "hardware_key": "未知"
             }
+
+
+class LicenseInfoDialog(QDialog):
+    """许可证信息对话框"""
     
+    def __init__(self, license_manager: LicenseManager, parent=None) -> None:
+        """初始化许可证信息对话框
+        
+        Args:
+            license_manager: 许可证管理器实例
+            parent: 父窗口
+        """
+        super().__init__(parent)
+        self.license_manager = license_manager
+        self.worker = None
+        self.config = load_config()
+        self.init_ui()
+        self.set_window_properties()
+        self._set_window_icon()
+        self.load_license_info()
+        
+    def _set_window_icon(self) -> None:
+        """设置许可证信息对话框窗口图标"""
+        try:
+            logger.debug("设置许可证信息对话框窗口图标")
+            
+            # 先确保配置已加载
+            if not hasattr(self, 'config'):
+                self.config = load_config()
+                
+            # 加载图标
+            icon = load_icon(self.config)
+            if not icon.isNull():
+                self.setWindowIcon(icon)
+                logger.debug("许可证信息对话框窗口图标设置成功")
+            else:
+                logger.warning("许可证信息对话框窗口图标为空")
+        except Exception as e:
+            logger.error(f"设置许可证信息对话框窗口图标时出错: {e}")
+        
+    def init_ui(self) -> None:
+        """初始化用户界面"""
+        # 设置主布局
+        main_layout = QVBoxLayout()
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setAlignment(Qt.AlignCenter)  # 整体居中
+        
+        # 标题
+        title_label = QLabel("许可证信息")
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title_label.setFont(title_font)
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("color: #2c3e50; margin-bottom: 15px;")
+        main_layout.addWidget(title_label)
+        
+        # 创建中心内容容器
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setAlignment(Qt.AlignCenter)  # 使内容居中
+        
+        # 许可证信息卡片
+        info_card = QFrame()
+        info_card.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        info_card.setStyleSheet("""
+            QFrame {
+                background-color: #ffffff;
+                border: 1px solid #bdc3c7;
+                border-radius: 8px;
+                padding: 15px;
+            }
+        """)
+        info_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 信息布局
+        info_layout = QVBoxLayout(info_card)
+        info_layout.setSpacing(10)
+        info_layout.setContentsMargins(20, 20, 20, 20)
+        info_layout.setAlignment(Qt.AlignCenter)  # 使信息内容居中
+        
+        # 设置统一的样式表用于信息标签
+        info_label_style = """
+            QLabel {
+                color: #2c3e50;
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 4px;
+                padding: 6px 8px;
+                min-height: 25px;
+                max-height: 80px;
+            }
+        """
+        
+        # 创建内部布局
+        inner_layout = QVBoxLayout()
+        inner_layout.setSpacing(8)
+        inner_layout.setAlignment(Qt.AlignCenter)  # 使内部内容居中
+        
+        # 授权对象
+        licensee_layout = QHBoxLayout()
+        licensee_layout.setSpacing(10)
+        
+        licensee_label = QLabel("授权对象:")
+        licensee_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
+        licensee_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        licensee_layout.addWidget(licensee_label)
+        
+        self.licensee_value = QLabel("加载中...")
+        self.licensee_value.setStyleSheet(info_label_style)
+        self.licensee_value.setWordWrap(True)
+        self.licensee_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        licensee_layout.addWidget(self.licensee_value)
+        
+        inner_layout.addLayout(licensee_layout)
+        
+        # 状态
+        status_layout = QHBoxLayout()
+        status_layout.setSpacing(10)
+        
+        status_label = QLabel("许可状态:")
+        status_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
+        status_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        status_layout.addWidget(status_label)
+        
+        self.status_value = QLabel("加载中...")
+        self.status_value.setStyleSheet(f"""
+            QLabel {{
+                color: #7f8c8d;
+                font-weight: bold;
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 4px;
+                padding: 6px 8px;
+                min-height: 25px;
+                max-height: 80px;
+            }}
+        """)
+        self.status_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        status_layout.addWidget(self.status_value)
+        
+        inner_layout.addLayout(status_layout)
+        
+        # 授权截止时间
+        expiration_layout = QHBoxLayout()
+        expiration_layout.setSpacing(10)
+        
+        expiration_label = QLabel("授权截止:")
+        expiration_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
+        expiration_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        expiration_layout.addWidget(expiration_label)
+        
+        self.expiration_value = QLabel("加载中...")
+        self.expiration_value.setStyleSheet(info_label_style)
+        self.expiration_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        expiration_layout.addWidget(self.expiration_value)
+        
+        inner_layout.addLayout(expiration_layout)
+        
+        # 硬件标识
+        hardware_layout = QHBoxLayout()
+        hardware_layout.setSpacing(10)
+        
+        hardware_label = QLabel("硬件标识:")
+        hardware_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
+        hardware_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        hardware_layout.addWidget(hardware_label)
+        
+        self.hardware_value = QLabel("加载中...")
+        self.hardware_value.setStyleSheet(info_label_style)
+        self.hardware_value.setWordWrap(True)
+        self.hardware_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        hardware_layout.addWidget(self.hardware_value)
+        
+        inner_layout.addLayout(hardware_layout)
+        
+        # 将内部布局添加到信息布局中
+        info_layout.addLayout(inner_layout)
+        
+        # 添加弹性空间
+        info_layout.addStretch(1)
+        
+        content_layout.addWidget(info_card)
+        main_layout.addWidget(content_container)
+        
+        # 按钮区域
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        refresh_button = QPushButton("刷新")
+        refresh_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        refresh_button.clicked.connect(self.load_license_info)
+        button_layout.addWidget(refresh_button)
+        
+        close_button = QPushButton("关闭")
+        close_button.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #7f8c8d;
+            }
+        """)
+        close_button.clicked.connect(self.accept)
+        button_layout.addWidget(close_button)
+        
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+        
+    def load_license_info(self) -> None:
+        """加载许可证信息（异步加载）"""
+        # 如果有正在运行的worker，先停止它
+        if self.worker and self.worker.isRunning():
+            self.worker.quit()
+            self.worker.wait()
+        
+        # 创建新的worker并启动
+        self.worker = LicenseInfoWorker(self.license_manager)
+        self.worker.info_ready.connect(self.update_license_info)
+        self.worker.start()
+        
+        # 显示加载状态
+        self.licensee_value.setText("加载中...")
+        self.status_value.setText("加载中...")
+        self.expiration_value.setText("加载中...")
+        self.hardware_value.setText("加载中...")
+        
+    def update_license_info(self, license_info: Dict[str, str]) -> None:
+        """更新许可证信息显示"""
+        self.licensee_value.setText(license_info.get("licensee", "未知"))
+        
+        status = license_info.get("status", "未知")
+        status_color = "#27ae60" if status == "有效" else "#e74c3c" if status == "已过期" else "#f39c12"
+        self.status_value.setText(status)
+        self.status_value.setStyleSheet(f"""
+            QLabel {{
+                color: {status_color};
+                font-weight: bold;
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 4px;
+                padding: 6px 8px;
+                min-height: 25px;
+                max-height: 80px;
+            }}
+        """)
+        
+        self.expiration_value.setText(license_info.get("expiration", "未知"))
+        self.hardware_value.setText(license_info.get("hardware_key", "未知"))
+        
     def set_window_properties(self) -> None:
         """设置窗口属性"""
         self.setWindowTitle("许可证信息")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.resize(500, 300)
+        self.resize(980, 450)
+        self.setFixedSize(980, 450)  # 固定大小
         self.setStyleSheet("""
             QDialog {
                 background-color: #ecf0f1;
             }
         """)
-        
-    def load_license_info(self) -> None:
-        """加载许可证信息（保持原有逻辑以兼容其他地方的调用）"""
-        pass
