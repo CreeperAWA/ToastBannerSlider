@@ -21,18 +21,21 @@ def get_resource_path(relative_path: str) -> str:
         str: 资源文件的绝对路径
     """
     # 获取可执行文件所在目录
+    base_path: str
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         # Nuitka单文件模式，资源在临时目录中
-        base_path = sys._MEIPASS
+        base_path = str(sys._MEIPASS)  # type: ignore
     elif getattr(sys, 'frozen', False):
         # 其他打包模式
-        base_path = os.path.dirname(sys.executable)
+        base_path = str(os.path.dirname(sys.executable))
     else:
         # 开发环境，使用__file__获取当前文件目录
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        base_path = str(os.path.dirname(os.path.abspath(__file__)))
         
+    # 确保relative_path是字符串类型
+    relative_path_str: str = str(relative_path)
     # 构建完整路径
-    full_path = os.path.join(base_path, relative_path)
+    full_path: str = os.path.join(base_path, relative_path_str)
     logger.debug(f"资源路径解析: {relative_path} -> {full_path}")
     return full_path
 

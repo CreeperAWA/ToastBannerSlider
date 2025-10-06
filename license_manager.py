@@ -27,17 +27,20 @@ import wmi  # type: ignore
 
 def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，采用与配置文件相同的策略"""
+    base_dir: str
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         # Nuitka单文件模式，资源在临时目录中
-        base_dir = sys._MEIPASS
+        base_dir = str(sys._MEIPASS)  # type: ignore
     elif getattr(sys, 'frozen', False):
         # 其他打包模式
-        base_dir = os.path.dirname(sys.executable)
+        base_dir = str(os.path.dirname(sys.executable))
     else:
         # 开发环境，使用__file__获取当前文件目录
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = str(os.path.dirname(os.path.abspath(__file__)))
         
-    return os.path.join(base_dir, relative_path)
+    # 确保relative_path是字符串类型
+    relative_path_str: str = str(relative_path)
+    return os.path.join(base_dir, relative_path_str)
 
 
 class LicenseManager:
