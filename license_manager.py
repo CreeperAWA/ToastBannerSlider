@@ -6,16 +6,15 @@
 import hashlib
 import os
 import sys
-import wmi
 import struct
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QFrame, QSizePolicy, QApplication, QWidget
+    QFrame, QSizePolicy, QWidget
 )
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QFont
@@ -23,8 +22,10 @@ from logger_config import logger
 from config import load_config
 from icon_manager import load_icon
 
+# wmi库缺少类型提示，忽略类型检查
+import wmi  # type: ignore
 
-def get_resource_path(relative_path):
+def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，采用与配置文件相同的策略"""
     if getattr(sys, 'frozen', False):
         # 打包后的程序
@@ -66,34 +67,52 @@ class LicenseManager:
         
         try:
             # 使用WMI获取准确的硬件信息
-            c = wmi.WMI()
+            c: Any = wmi.WMI()  # type: ignore
             
             # 获取CPU序列号
             try:
-                for processor in c.Win32_Processor():
-                    if processor.ProcessorId:
-                        logger.info(f"获取到CPU序列号: {processor.ProcessorId.strip()}")
-                        hardware_info["cpu"] = processor.ProcessorId.strip()
+                processors: List[Any] = c.Win32_Processor()  # type: ignore
+                for processor in processors: # type: ignore
+                    # 通过类型注释明确指定processor类型以避免Pylance警告
+                    proc: Any = processor  # type: ignore
+                    # 使用类型注释明确指定getattr返回值类型
+                    processor_id: Optional[str] = getattr(proc, 'ProcessorId', None)  # type: ignore
+                    if processor_id:
+                        processor_id_str: str = processor_id.strip()  # type: ignore
+                        logger.info(f"获取到CPU序列号: {processor_id_str}")
+                        hardware_info["cpu"] = processor_id_str
                         break
             except Exception as e:
                 logger.warning(f"获取CPU序列号失败: {e}")
             
             # 获取硬盘序列号
             try:
-                for disk in c.Win32_DiskDrive():
-                    if disk.SerialNumber:
-                        logger.info(f"获取到硬盘序列号: {disk.SerialNumber.strip()}")
-                        hardware_info["disk"] = disk.SerialNumber.strip()
+                disks: List[Any] = c.Win32_DiskDrive()  # type: ignore
+                for disk in disks: # type: ignore
+                    # 通过类型注释明确指定disk类型以避免Pylance警告
+                    d: Any = disk  # type: ignore
+                    # 使用类型注释明确指定getattr返回值类型
+                    serial_number: Optional[str] = getattr(d, 'SerialNumber', None)  # type: ignore
+                    if serial_number:
+                        serial_number_str: str = serial_number.strip()  # type: ignore
+                        logger.info(f"获取到硬盘序列号: {serial_number_str}")
+                        hardware_info["disk"] = serial_number_str
                         break
             except Exception as e:
                 logger.warning(f"获取硬盘序列号失败: {e}")
             
             # 获取主板序列号
             try:
-                for board in c.Win32_BaseBoard():
-                    if board.SerialNumber:
-                        logger.info(f"获取到主板序列号: {board.SerialNumber.strip()}")
-                        hardware_info["motherboard"] = board.SerialNumber.strip()
+                boards: List[Any] = c.Win32_BaseBoard()  # type: ignore
+                for board in boards: # type: ignore
+                    # 通过类型注释明确指定board类型以避免Pylance警告
+                    b: Any = board  # type: ignore
+                    # 使用类型注释明确指定getattr返回值类型
+                    serial_number: Optional[str] = getattr(b, 'SerialNumber', None)  # type: ignore
+                    if serial_number:
+                        serial_number_str: str = serial_number.strip()  # type: ignore
+                        logger.info(f"获取到主板序列号: {serial_number_str}")
+                        hardware_info["motherboard"] = serial_number_str
                         break
             except Exception as e:
                 logger.warning(f"获取主板序列号失败: {e}")
@@ -143,7 +162,7 @@ class LicenseManager:
         final_hash = hashlib.sha3_384(sha3_512_hash.encode('utf-8')).hexdigest()
         return final_hash
     
-    def load_public_key(self):
+    def load_public_key(self) -> Any:
         """加载公钥
         
         Returns:
@@ -160,7 +179,7 @@ class LicenseManager:
             logger.error(f"加载公钥失败: {e}")
             return None
     
-    def load_private_key(self):
+    def load_private_key(self) -> Any:
         """加载私钥
         
         Returns:
@@ -226,6 +245,8 @@ class LicenseManager:
                 return False
                 
             licensee = license_content[offset:offset+licensee_length].decode('utf-8')
+            # 确保变量被使用
+            _ = licensee
             offset += licensee_length
             
             # 解析过期时间
@@ -305,11 +326,11 @@ class LicenseInfoWorker(QThread):
     """许可证信息获取工作线程"""
     info_ready = Signal(dict)
     
-    def __init__(self, license_manager):
+    def __init__(self, license_manager: 'LicenseManager') -> None:
         super().__init__()
         self.license_manager = license_manager
     
-    def run(self):
+    def run(self) -> None:
         try:
             license_info = self.get_license_info()
             self.info_ready.emit(license_info)
@@ -346,7 +367,8 @@ class LicenseInfoWorker(QThread):
                     "hardware_key": "未知"
                 }
                 
-            signature = license_data[-512:]
+            # 确保变量被使用
+            _ = license_data[-512:]
             license_content = license_data[:-512]
             
             # 解析许可证内容
@@ -435,7 +457,7 @@ class LicenseInfoWorker(QThread):
 class LicenseInfoDialog(QDialog):
     """许可证信息对话框"""
     
-    def __init__(self, license_manager: LicenseManager, parent=None) -> None:
+    def __init__(self, license_manager: LicenseManager, parent: Optional[Any] = None) -> None:
         """初始化许可证信息对话框
         
         Args:
@@ -444,7 +466,7 @@ class LicenseInfoDialog(QDialog):
         """
         super().__init__(parent)
         self.license_manager = license_manager
-        self.worker = None
+        self.worker: Optional[LicenseInfoWorker] = None
         self.config = load_config()
         self.init_ui()
         self.set_window_properties()
@@ -476,7 +498,7 @@ class LicenseInfoDialog(QDialog):
         main_layout = QVBoxLayout()
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setAlignment(Qt.AlignCenter)  # 整体居中
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 整体居中
         
         # 标题
         title_label = QLabel("许可证信息")
@@ -484,18 +506,18 @@ class LicenseInfoDialog(QDialog):
         title_font.setPointSize(16)
         title_font.setBold(True)
         title_label.setFont(title_font)
-        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("color: #2c3e50; margin-bottom: 15px;")
         main_layout.addWidget(title_label)
         
         # 创建中心内容容器
         content_container = QWidget()
         content_layout = QVBoxLayout(content_container)
-        content_layout.setAlignment(Qt.AlignCenter)  # 使内容居中
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 使内容居中
         
         # 许可证信息卡片
         info_card = QFrame()
-        info_card.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        info_card.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
         info_card.setStyleSheet("""
             QFrame {
                 background-color: #ffffff;
@@ -504,13 +526,13 @@ class LicenseInfoDialog(QDialog):
                 padding: 15px;
             }
         """)
-        info_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        info_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # 信息布局
         info_layout = QVBoxLayout(info_card)
         info_layout.setSpacing(10)
         info_layout.setContentsMargins(20, 20, 20, 20)
-        info_layout.setAlignment(Qt.AlignCenter)  # 使信息内容居中
+        info_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 使信息内容居中
         
         # 设置统一的样式表用于信息标签
         info_label_style = """
@@ -528,7 +550,7 @@ class LicenseInfoDialog(QDialog):
         # 创建内部布局
         inner_layout = QVBoxLayout()
         inner_layout.setSpacing(8)
-        inner_layout.setAlignment(Qt.AlignCenter)  # 使内部内容居中
+        inner_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)  # 使内部内容居中
         
         # 授权对象
         licensee_layout = QHBoxLayout()
@@ -536,13 +558,13 @@ class LicenseInfoDialog(QDialog):
         
         licensee_label = QLabel("授权对象:")
         licensee_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
-        licensee_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        licensee_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding)
         licensee_layout.addWidget(licensee_label)
         
         self.licensee_value = QLabel("加载中...")
         self.licensee_value.setStyleSheet(info_label_style)
         self.licensee_value.setWordWrap(True)
-        self.licensee_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.licensee_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         licensee_layout.addWidget(self.licensee_value)
         
         inner_layout.addLayout(licensee_layout)
@@ -553,7 +575,7 @@ class LicenseInfoDialog(QDialog):
         
         status_label = QLabel("许可状态:")
         status_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
-        status_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        status_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding)
         status_layout.addWidget(status_label)
         
         self.status_value = QLabel("加载中...")
@@ -569,7 +591,7 @@ class LicenseInfoDialog(QDialog):
                 max-height: 80px;
             }}
         """)
-        self.status_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.status_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         status_layout.addWidget(self.status_value)
         
         inner_layout.addLayout(status_layout)
@@ -580,12 +602,12 @@ class LicenseInfoDialog(QDialog):
         
         expiration_label = QLabel("授权截止:")
         expiration_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
-        expiration_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        expiration_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding)
         expiration_layout.addWidget(expiration_label)
         
         self.expiration_value = QLabel("加载中...")
         self.expiration_value.setStyleSheet(info_label_style)
-        self.expiration_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.expiration_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         expiration_layout.addWidget(self.expiration_value)
         
         inner_layout.addLayout(expiration_layout)
@@ -596,13 +618,13 @@ class LicenseInfoDialog(QDialog):
         
         hardware_label = QLabel("硬件标识:")
         hardware_label.setStyleSheet("font-weight: bold; color: #34495e; width: 120px; max-width: 120px; max-height: 80px;")
-        hardware_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
+        hardware_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding)
         hardware_layout.addWidget(hardware_label)
         
         self.hardware_value = QLabel("加载中...")
         self.hardware_value.setStyleSheet(info_label_style)
         self.hardware_value.setWordWrap(True)
-        self.hardware_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+        self.hardware_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         hardware_layout.addWidget(self.hardware_value)
         
         inner_layout.addLayout(hardware_layout)
@@ -701,7 +723,7 @@ class LicenseInfoDialog(QDialog):
     def set_window_properties(self) -> None:
         """设置窗口属性"""
         self.setWindowTitle("许可证信息")
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         self.resize(980, 450)
         self.setFixedSize(980, 450)  # 固定大小
         self.setStyleSheet("""

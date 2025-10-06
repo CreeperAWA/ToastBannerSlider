@@ -1,8 +1,7 @@
 """生成RSA密钥对用于许可证签名和验证"""
 
-import os
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 
