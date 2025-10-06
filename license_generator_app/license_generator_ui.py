@@ -593,8 +593,8 @@ class LicenseGeneratorUI(QMainWindow):
     def init_ui(self):
         """初始化用户界面 - 现代化设计"""
         self.setWindowTitle("许可证生成器")
-        self.setGeometry(100, 100, 850, 700)  # 减小默认高度从1000到700
-        self.setMinimumSize(750, 600)  # 减小最小高度从900到600
+        self.setGeometry(100, 100, 850, 700)
+        self.setMinimumSize(750, 600)
 
         # 设置现代化样式
         self.setStyleSheet("""
