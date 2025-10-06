@@ -27,12 +27,15 @@ import wmi  # type: ignore
 
 def get_resource_path(relative_path: str) -> str:
     """获取资源文件的绝对路径，采用与配置文件相同的策略"""
-    if getattr(sys, 'frozen', False):
-        # 打包后的程序
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Nuitka单文件模式，资源在临时目录中
+        base_dir = sys._MEIPASS
+    elif getattr(sys, 'frozen', False):
+        # 其他打包模式
         base_dir = os.path.dirname(sys.executable)
     else:
-        # 开发环境，使用sys.argv[0]而不是__file__
-        base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        # 开发环境，使用__file__获取当前文件目录
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         
     return os.path.join(base_dir, relative_path)
 

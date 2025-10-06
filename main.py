@@ -158,9 +158,7 @@ class ToastBannerManager(QObject):
             config: 配置字典
             parent: 父对象
         """
-        super().__init__(parent)
-        logger.info("正在启动ToastBannerSlider...")
-        
+
         # 使用传入的QApplication和配置字典
         self.app = app
         self.config = config

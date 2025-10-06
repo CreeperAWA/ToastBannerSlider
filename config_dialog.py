@@ -595,6 +595,7 @@ class ConfigDialog(QDialog):
                 icon_path = os.path.join(icons_dir, icon_text)
                 
                 logger.debug(f"图标目录路径: {icons_dir}")
+                logger.debug(f"完整图标路径: {icon_path}")
                 
                 if os.path.exists(icon_path):
                     icon = QIcon(icon_path)
@@ -603,12 +604,20 @@ class ConfigDialog(QDialog):
                         pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
                         if pixmap.isNull():
                             # 如果无法获取指定尺寸的pixmap，尝试使用默认尺寸
-                            pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                            available_sizes = icon.availableSizes()
+                            if available_sizes:
+                                pixmap = icon.pixmap(available_sizes[0])
+                            else:
+                                pixmap = QPixmap(48, 48)
                         # 缩放到预览框大小，使用平滑变换
                         pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                         self.icon_preview_label.setPixmap(pixmap)
                         logger.debug(f"图标预览已更新: {icon_path}")
                         return
+                    else:
+                        logger.warning(f"图标文件无效: {icon_path}")
+                else:
+                    logger.warning(f"图标文件不存在: {icon_path}")
             
             # 使用默认图标预览
             logger.debug("使用默认图标预览")
@@ -619,9 +628,14 @@ class ConfigDialog(QDialog):
                 if not icon.isNull():
                     pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
                     if pixmap.isNull():
-                        pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                        available_sizes = icon.availableSizes()
+                        if available_sizes:
+                            pixmap = icon.pixmap(available_sizes[0])
+                        else:
+                            pixmap = QPixmap(48, 48)
                     pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                     self.icon_preview_label.setPixmap(pixmap)
+                    logger.debug(f"使用默认资源图标预览(ico): {resource_icon_path}")
                     return
             
             # 尝试加载notification_icon.png
@@ -631,15 +645,21 @@ class ConfigDialog(QDialog):
                 if not icon.isNull():
                     pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
                     if pixmap.isNull():
-                        pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                        available_sizes = icon.availableSizes()
+                        if available_sizes:
+                            pixmap = icon.pixmap(available_sizes[0])
+                        else:
+                            pixmap = QPixmap(48, 48)
                     pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                     self.icon_preview_label.setPixmap(pixmap)
+                    logger.debug(f"使用默认资源图标预览(png): {resource_icon_path}")
                     return
             
             # 如果所有尝试都失败了，创建一个简单的默认图像
             pixmap = QPixmap(48, 48)
             pixmap.fill(Qt.GlobalColor.gray)
             self.icon_preview_label.setPixmap(pixmap)
+            logger.debug("使用灰色默认图标预览")
         except Exception as e:
             logger.error(f"更新图标预览时出错: {e}")
             # 出错时显示一个简单的默认图像

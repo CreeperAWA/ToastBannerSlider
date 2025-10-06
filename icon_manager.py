@@ -21,12 +21,15 @@ def get_resource_path(relative_path: str) -> str:
         str: 资源文件的绝对路径
     """
     # 获取可执行文件所在目录
-    if getattr(sys, 'frozen', False):
-        # 打包后的程序
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Nuitka单文件模式，资源在临时目录中
+        base_path = sys._MEIPASS
+    elif getattr(sys, 'frozen', False):
+        # 其他打包模式
         base_path = os.path.dirname(sys.executable)
     else:
-        # 开发环境，使用sys.argv[0]而不是__file__
-        base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
+        # 开发环境，使用__file__获取当前文件目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
         
     # 构建完整路径
     full_path = os.path.join(base_path, relative_path)
@@ -120,9 +123,12 @@ def load_icon(config: Optional[Dict[str, Any]] = None) -> QIcon:
         if config and "custom_icon" in config:
             custom_icon_filename = config.get("custom_icon")
             if custom_icon_filename:
+                # 确保custom_icon_filename是字符串类型
+                custom_icon_filename = str(custom_icon_filename)
                 icons_dir = get_icons_dir()
                 if icons_dir:
                     icon_path = os.path.join(icons_dir, custom_icon_filename)
+                    logger.debug(f"尝试加载自定义图标: {icon_path}")
                     if os.path.exists(icon_path):
                         icon = QIcon(icon_path)
                         if not icon.isNull():
@@ -132,26 +138,42 @@ def load_icon(config: Optional[Dict[str, Any]] = None) -> QIcon:
                             logger.warning(f"自定义图标文件无效: {icon_path}")
                     else:
                         logger.warning(f"自定义图标文件不存在: {icon_path}")
+                else:
+                    logger.warning("无法获取图标目录")
+            else:
+                logger.debug("配置中custom_icon为空")
+        else:
+            logger.debug("配置中无自定义图标设置")
         
         # 如果没有自定义图标或加载失败，使用默认图标
         try:
             resource_icon_path = get_resource_path("notification_icon.ico")
+            logger.debug(f"尝试加载资源图标: {resource_icon_path}")
             if os.path.exists(resource_icon_path):
                 icon = QIcon(resource_icon_path)
                 if not icon.isNull():
                     logger.debug(f"成功加载资源图标: {resource_icon_path}")
                     return icon
+                else:
+                    logger.warning(f"资源图标文件无效: {resource_icon_path}")
+            else:
+                logger.warning(f"资源图标文件不存在: {resource_icon_path}")
         except Exception as e:
             logger.debug(f"无法从资源加载图标: {e}")
             
         # 尝试使用notification_icon.png作为后备
         try:
             resource_icon_path = get_resource_path("notification_icon.png")
+            logger.debug(f"尝试加载PNG资源图标: {resource_icon_path}")
             if os.path.exists(resource_icon_path):
                 icon = QIcon(resource_icon_path)
                 if not icon.isNull():
                     logger.debug(f"成功加载PNG资源图标: {resource_icon_path}")
                     return icon
+                else:
+                    logger.warning(f"PNG资源图标文件无效: {resource_icon_path}")
+            else:
+                logger.warning(f"PNG资源图标文件不存在: {resource_icon_path}")
         except Exception as e:
             logger.debug(f"无法从PNG资源加载图标: {e}")
             
