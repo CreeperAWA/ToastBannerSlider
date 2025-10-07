@@ -125,16 +125,6 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Convert PNG to ICO
-        run: |
-          python -c "
-          import PIL
-          from PIL import Image
-          import os
-          img = Image.open('notification_icon.png')
-          img.save('notification_icon.ico', format='ICO')
-          "
-      
       - name: Set version environment variable
         run: |
           if ("${{ github.event_name }}" -eq "release") {
@@ -199,16 +189,6 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Convert PNG to ICO
-        run: |
-          python -c "
-          import PIL
-          from PIL import Image
-          import os
-          img = Image.open('notification_icon.png')
-          img.save('notification_icon.ico', format='ICO')
-          "
-      
       - name: Set version environment variable
         run: |
           if ("${{ github.event_name }}" -eq "release") {
