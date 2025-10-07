@@ -43,6 +43,16 @@ def get_resource_path(relative_path: str) -> str:
     return os.path.join(base_dir, relative_path_str)
 
 
+def get_executable_dir() -> str:
+    """获取可执行文件所在目录"""
+    if getattr(sys, 'frozen', False):
+        # 打包后的程序
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境，使用sys.argv[0]而不是__file__
+        return os.path.dirname(os.path.abspath(sys.argv[0]))
+
+
 class LicenseManager:
     """许可证管理器"""
     
@@ -50,6 +60,7 @@ class LicenseManager:
         """初始化许可证管理器"""
         self.license_file = "License.key"
         self.public_key_file = get_resource_path("public.pem")
+        self.custom_public_key_file = os.path.join(get_executable_dir(), "CustomPublicKey.pem")
         self.private_key_file = "private.pem"
         # 添加硬件信息缓存
         self._hardware_info: Optional[Dict[str, str]] = None
@@ -175,7 +186,13 @@ class LicenseManager:
             公钥对象
         """
         try:
-            with open(self.public_key_file, "rb") as key_file:
+            # 检查自定义公钥文件是否存在，如果存在则优先使用
+            public_key_path = self.public_key_file
+            if os.path.exists(self.custom_public_key_file):
+                logger.info("检测到自定义公钥文件，将优先使用")
+                public_key_path = self.custom_public_key_file
+            
+            with open(public_key_path, "rb") as key_file:
                 public_key = serialization.load_pem_public_key(
                     key_file.read(),
                     backend=default_backend()
@@ -215,8 +232,12 @@ class LicenseManager:
                 logger.error("许可证文件不存在")
                 return False
             
-            # 检查公钥文件是否存在
-            if not os.path.exists(self.public_key_file):
+            # 检查公钥文件是否存在（自定义公钥优先）
+            public_key_path = self.public_key_file # type: ignore
+            if os.path.exists(self.custom_public_key_file):
+                logger.info("使用自定义公钥文件进行验证")
+                public_key_path = self.custom_public_key_file # type: ignore
+            elif not os.path.exists(self.public_key_file):
                 logger.error("公钥文件不存在")
                 return False
             
@@ -250,9 +271,8 @@ class LicenseManager:
                 logger.error("许可证格式无效：无法解析授权对象内容")
                 return False
                 
-            licensee = license_content[offset:offset+licensee_length].decode('utf-8')
-            # 确保变量被使用
-            _ = licensee
+            # 直接使用licensee变量，移除无用的占位符
+            licensee = license_content[offset:offset+licensee_length].decode('utf-8') # type: ignore
             offset += licensee_length
             
             # 解析过期时间
@@ -373,8 +393,8 @@ class LicenseInfoWorker(QThread):
                     "hardware_key": "未知"
                 }
                 
-            # 确保变量被使用
-            _ = license_data[-512:]
+            # 直接提取签名和内容，移除无用的变量使用
+            signature = license_data[-512:] # type: ignore
             license_content = license_data[:-512]
             
             # 解析许可证内容
