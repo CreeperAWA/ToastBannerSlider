@@ -41,5 +41,5 @@ python license_generator_main.py
 
 ```bash
 cd license_generator_app
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --windows-icon-from-ico="icon.ico" --product-name="ToastBannerSliderLicenseGenerator" --product-version="1.0.0" --file-description="ToastBannerSliderLicenseGenerator" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=public.pem=public.pem --include-data-file=private.pem=private.pem license_generator_ui.py
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --windows-icon-from-ico="icon.ico" --product-name="ToastBannerSliderLicenseGenerator" --product-version="1.0.0" --file-description="ToastBannerSliderLicenseGenerator" --copyright="© 2025 CreeperAWA." --include-data-file=public.pem=public.pem --include-data-file=private.pem=private.pem license_generator_ui.py
 ```

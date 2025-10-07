@@ -140,7 +140,7 @@ python main.py
 使用 Nuitka 将程序打包为独立的可执行文件：
 
 ```bash
-python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="1.0.0" --file-description="ToastBannerSlider" --copyright="© 2025 CreeperAWA. All rights reserved." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem main.py
+python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --main="main.py" --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="1.0.0" --file-description="ToastBannerSlider" --copyright="© 2025 CreeperAWA." --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem main.py
 ```
 
 ## 开源许可
