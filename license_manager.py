@@ -187,10 +187,11 @@ class LicenseManager:
         """
         try:
             # 检查自定义公钥文件是否存在，如果存在则优先使用
-            public_key_path = self.public_key_file
             if os.path.exists(self.custom_public_key_file):
                 logger.info("检测到自定义公钥文件，将优先使用")
                 public_key_path = self.custom_public_key_file
+            else:
+                public_key_path = self.public_key_file
             
             with open(public_key_path, "rb") as key_file:
                 public_key = serialization.load_pem_public_key(
@@ -233,11 +234,13 @@ class LicenseManager:
                 return False
             
             # 检查公钥文件是否存在（自定义公钥优先）
-            public_key_path = self.public_key_file # type: ignore
             if os.path.exists(self.custom_public_key_file):
                 logger.info("使用自定义公钥文件进行验证")
-                public_key_path = self.custom_public_key_file # type: ignore
-            elif not os.path.exists(self.public_key_file):
+                public_key_path = self.custom_public_key_file
+            elif os.path.exists(self.public_key_file):
+                logger.info("使用默认公钥文件进行验证")
+                public_key_path = self.public_key_file
+            else:
                 logger.error("公钥文件不存在")
                 return False
             
@@ -271,8 +274,9 @@ class LicenseManager:
                 logger.error("许可证格式无效：无法解析授权对象内容")
                 return False
                 
-            # 直接使用licensee变量，移除无用的占位符
-            licensee = license_content[offset:offset+licensee_length].decode('utf-8') # type: ignore
+            licensee = license_content[offset:offset+licensee_length].decode('utf-8')
+            # 确保变量被使用
+            _ = licensee
             offset += licensee_length
             
             # 解析过期时间
@@ -313,21 +317,26 @@ class LicenseManager:
                 return False
             
             # 验证签名
-            public_key = self.load_public_key()
+            with open(public_key_path, "rb") as key_file:
+                public_key = serialization.load_pem_public_key(
+                    key_file.read(),
+                    backend=default_backend()
+                )
+            
             if not public_key:
                 logger.error("无法加载公钥进行签名验证")
                 return False
             
             try:
                 # 验证签名
-                public_key.verify(
+                public_key.verify( # type: ignore
                     signature,
                     license_content,
                     padding.PSS(
                         mgf=padding.MGF1(hashes.SHA512()),
                         salt_length=padding.PSS.MAX_LENGTH
-                    ),
-                    hashes.SHA512()
+                    ), # type: ignore
+                    hashes.SHA512() # type: ignore
                 )
                 logger.info("许可证验证成功")
                 return True
@@ -393,8 +402,9 @@ class LicenseInfoWorker(QThread):
                     "hardware_key": "未知"
                 }
                 
-            # 直接提取签名和内容，移除无用的变量使用
-            signature = license_data[-512:] # type: ignore
+            signature = license_data[-512:]  # 签名固定为512字节
+            # 确保变量被使用
+            _ = signature
             license_content = license_data[:-512]
             
             # 解析许可证内容
@@ -421,6 +431,8 @@ class LicenseInfoWorker(QThread):
                 }
                 
             licensee = license_content[offset:offset+licensee_length].decode('utf-8')
+            # 确保变量被使用
+            _ = licensee
             offset += licensee_length
             
             # 解析过期时间
