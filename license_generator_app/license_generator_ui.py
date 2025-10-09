@@ -592,7 +592,7 @@ class LicenseGeneratorUI(QMainWindow):
 
     def init_ui(self):
         """初始化用户界面 - 现代化设计"""
-        self.setWindowTitle("许可证生成器")
+        self.setWindowTitle("ToastBannerSlider许可证签发程序")
         self.setGeometry(100, 100, 850, 700)
         self.setMinimumSize(750, 600)
 
