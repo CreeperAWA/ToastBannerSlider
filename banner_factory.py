@@ -5,11 +5,12 @@
 
 from typing import Union, Dict, Optional
 from notice_slider import NotificationWindow
-from warning_banner import WarningBanner
+from warning_banner_cpu import WarningBanner as WarningBannerCPU
+from warning_banner_gpu import WarningBanner as WarningBannerGPU
 from config import load_config
 
 
-def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Optional[int] = None) -> Union[NotificationWindow, WarningBanner]:
+def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Optional[int] = None) -> Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU]:
     """根据配置创建横幅实例
     
     Args:
@@ -28,8 +29,16 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
     
     # 根据样式创建对应的横幅实例
     if banner_style == "warning":
-        # 创建警告样式横幅
-        banner = WarningBanner(text=message, y_offset=vertical_offset, config=config)
+        # 获取渲染后端配置
+        rendering_backend: str = str(config.get("rendering_backend", "default"))
+        
+        # 根据渲染后端选择对应的WarningBanner版本
+        if rendering_backend in ["opengl", "opengles"]:
+            # 使用GPU渲染版本
+            banner = WarningBannerGPU(text=message, y_offset=vertical_offset)
+        else:
+            # 使用CPU渲染版本
+            banner = WarningBannerCPU(text=message, y_offset=vertical_offset)
         return banner
     else:
         # 创建默认样式横幅

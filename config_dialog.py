@@ -53,6 +53,7 @@ class ConfigDialog(QDialog):
     ignore_duplicate_checkbox: QCheckBox
     dnd_checkbox: QCheckBox
     rendering_backend_combo: QComboBox
+    banner_style_combo: QComboBox # 添加对样式选择框的引用
     icon_edit: QLineEdit
     icon_preview_label: QLabel
     
@@ -87,6 +88,10 @@ class ConfigDialog(QDialog):
             
             # 连接信号
             self._connect_signals()
+            
+            # 初始化后立即应用渲染后端规则（处理初始化时的状态）
+            # 此时所有UI组件都已创建
+            self._on_rendering_backend_changed(self.rendering_backend_combo.currentIndex())
             
             logger.debug("配置对话框初始化完成")
         except Exception as e:
@@ -327,7 +332,8 @@ class ConfigDialog(QDialog):
             self.banner_opacity_spinbox.setRange(0.0, 1.0)
             self.banner_opacity_spinbox.setValue(float(self.config.get("banner_opacity", 0.9) or 0.9))
             self.banner_opacity_spinbox.setSingleStep(0.01)
-            layout.addRow("横幅透明度:", self.banner_opacity_spinbox)
+            self.banner_opacity_label = QLabel("横幅透明度:")
+            layout.addRow(self.banner_opacity_label, self.banner_opacity_spinbox)
             
             # 滚动模式
             self.scroll_mode_combo = QComboBox()
@@ -344,24 +350,18 @@ class ConfigDialog(QDialog):
             self.banner_style_combo.currentTextChanged.connect(self._on_banner_style_changed)
             
             # 初始化时根据当前样式隐藏无效配置
-            self._on_banner_style_changed(self.banner_style_combo.currentText())
+            # 此时 advanced_group 尚未创建，rendering_backend_combo 不存在
+            # 因此不调用 _on_rendering_backend_changed
+            self._apply_banner_style_visibility(self.banner_style_combo.currentData())
             
             return group
         except Exception as e:
             logger.error(f"创建显示设置组时出错: {e}")
             return QGroupBox("显示设置")
-            
-    def _on_banner_style_changed(self, style_text: str) -> None:
-        """当横幅样式改变时，隐藏对当前样式无效的配置项
-        
-        Args:
-            style_text: 当前选择的样式文本
-        """
-        # 获取当前选择的样式数据
-        current_style = self.banner_style_combo.currentData()
-        
-        # 对于警告样式，隐藏一些无效的配置项
-        if current_style == "warning":
+
+    def _apply_banner_style_visibility(self, style_data: str) -> None:
+        """根据横幅样式数据应用显示/隐藏逻辑"""
+        if style_data == "warning":
             # 隐藏对警告样式无效的配置项
             self.spacing_spinbox.hide()
             self.left_margin_spinbox.hide()
@@ -399,6 +399,27 @@ class ConfigDialog(QDialog):
             self.window_height_label.show()
             self.label_mask_width_label.show()
             self.font_size_label.show()
+
+            
+    def _on_banner_style_changed(self, style_text: str) -> None:
+        """当横幅样式改变时，隐藏对当前样式无效的配置项，并检查渲染后端限制
+        
+        Args:
+            style_text: 当前选择的样式文本
+        """
+        logger.debug(f"横幅样式改变为: {style_text}")
+        # 获取当前选择的样式数据
+        current_style = self.banner_style_combo.currentData()
+        
+        # 应用样式相关的显示/隐藏逻辑
+        self._apply_banner_style_visibility(current_style)
+
+        # 检查渲染后端限制（样式改变后可能需要重新检查透明度和GPU选项可用性）
+        # 确保 rendering_backend_combo 已存在
+        if hasattr(self, 'rendering_backend_combo'):
+            self._on_rendering_backend_changed(self.rendering_backend_combo.currentIndex())
+
+
     def _create_animation_group(self) -> QGroupBox:
         """创建动画设置组
         
@@ -560,10 +581,73 @@ class ConfigDialog(QDialog):
             
             # 连接恢复默认按钮
             self.reset_button.clicked.connect(self._on_reset)
+
+            # 连接渲染后端选择框变化信号
+            self.rendering_backend_combo.currentIndexChanged.connect(self._on_rendering_backend_changed)
             
             logger.debug("配置对话框信号连接完成")
         except Exception as e:
             logger.error(f"连接配置对话框信号时出错: {e}")
+
+    def _update_gpu_options_enabled(self) -> None:
+        """根据当前横幅样式更新GPU选项的启用/禁用状态"""
+        current_style = self.banner_style_combo.currentData()
+        model = self.rendering_backend_combo.model()
+        gpu_items = ["opengl", "opengles"]
+
+        if current_style == "default":
+            # 使用默认横幅样式时不允许选择GPU渲染
+            for i in range(self.rendering_backend_combo.count()):
+                item_data = self.rendering_backend_combo.itemData(i)
+                item = model.item(i)
+                if item_data in gpu_items:
+                    item.setEnabled(False)
+                    logger.debug(f"禁用GPU选项: {item_data}")
+        else:
+            # 使用警告样式时，GPU选项可用
+            for i in range(self.rendering_backend_combo.count()):
+                item_data = self.rendering_backend_combo.itemData(i)
+                item = model.item(i)
+                if item_data in gpu_items:
+                    item.setEnabled(True)
+                    logger.debug(f"启用GPU选项: {item_data}")
+
+    def _on_rendering_backend_changed(self, index: int) -> None:
+        """当渲染后端改变时，根据是否为GPU模式控制透明度设置的可见性，
+        并根据是否为默认样式和GPU模式控制GPU选项的可用性。
+        
+        Args:
+            index: 渲染后端选择框的新索引
+        """
+        logger.debug(f"渲染后端改变，索引: {index}")
+        current_backend = self.rendering_backend_combo.currentData()
+        is_gpu = current_backend in ["opengl", "opengles"]
+
+        # 控制透明度设置的可见性
+        if is_gpu:
+            # 使用GPU模式渲染时隐藏透明度设置
+            self.banner_opacity_spinbox.hide()
+            self.banner_opacity_label.hide()
+            logger.debug("隐藏透明度设置")
+        else:
+            # 非GPU模式时显示透明度设置
+            self.banner_opacity_spinbox.show()
+            self.banner_opacity_label.show()
+            logger.debug("显示透明度设置")
+
+        # 更新GPU选项的启用/禁用状态
+        self._update_gpu_options_enabled()
+
+        # 检查当前是否为GPU模式，如果是且样式为默认，则强制切换回默认渲染后端
+        current_style = self.banner_style_combo.currentData()
+        if current_style == "default" and is_gpu:
+            default_index = self.rendering_backend_combo.findData("default")
+            if default_index >= 0:
+                self.rendering_backend_combo.setCurrentIndex(default_index)
+                logger.debug("因默认样式，强制切换回默认渲染后端")
+                # 重新调用此函数以更新透明度显示状态和选项可用性
+                # 注意：这里重新调用后，is_gpu 会变为 False，因此不会再进入这个分支
+                self._on_rendering_backend_changed(default_index)
             
     def _on_select_icon(self) -> None:
         """处理选择图标事件"""
@@ -638,7 +722,7 @@ class ConfigDialog(QDialog):
                 "fade_animation_duration": self.fade_duration_spinbox.value(),
                 "base_vertical_offset": self.base_vertical_offset_spinbox.value(),
                 # 更新横幅透明度的保存逻辑
-                "banner_opacity": self.banner_opacity_spinbox.value(),
+                "banner_opacity": self.banner_opacity_spinbox.value() if self.banner_opacity_spinbox.isVisible() else 0.9, # 保存时检查可见性，或使用默认值
                 "banner_style": self.banner_style_combo.currentData(),  # 添加横幅样式配置项
                 "log_level": self.log_level_combo.currentData(),
                 "scroll_mode": self.scroll_mode_combo.currentData(),
@@ -722,7 +806,17 @@ class ConfigDialog(QDialog):
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                # 更新界面控件
+                # 重置渲染后端到默认值
+                default_backend_index = self.rendering_backend_combo.findData("default")
+                if default_backend_index >= 0:
+                    self.rendering_backend_combo.setCurrentIndex(default_backend_index)
+                
+                # 重置样式到默认值
+                default_style_index = self.banner_style_combo.findData("default")
+                if default_style_index >= 0:
+                    self.banner_style_combo.setCurrentIndex(default_style_index)
+
+                # 更新界面控件 (包括透明度，此时应可见)
                 self.title_edit.setText(str(DEFAULT_CONFIG.get("notification_title", "911 呼唤群")))
                 self.speed_spinbox.setValue(float(DEFAULT_CONFIG.get("scroll_speed", 200.0) or 200.0))
                 self.scroll_count_spinbox.setValue(int(DEFAULT_CONFIG.get("scroll_count", 3) or 3))
@@ -741,6 +835,8 @@ class ConfigDialog(QDialog):
                 self.base_vertical_offset_spinbox.setValue(int(DEFAULT_CONFIG.get("base_vertical_offset", 50) or 50))
                 # 更新横幅透明度的重置逻辑
                 self.banner_opacity_spinbox.setValue(float(DEFAULT_CONFIG.get("banner_opacity", 0.9) or 0.9))
+                self.banner_opacity_spinbox.show() # 确保重置后透明度控件是可见的
+                self.banner_opacity_label.show()
                 
                 # 滚动模式
                 index = self.scroll_mode_combo.findData(DEFAULT_CONFIG.get("scroll_mode", "always"))
@@ -751,11 +847,6 @@ class ConfigDialog(QDialog):
                 index = self.log_level_combo.findData(DEFAULT_CONFIG.get("log_level", "INFO"))
                 if index >= 0:
                     self.log_level_combo.setCurrentIndex(index)
-                    
-                # 渲染后端
-                index = self.rendering_backend_combo.findData(DEFAULT_CONFIG.get("rendering_backend", "default"))
-                if index >= 0:
-                    self.rendering_backend_combo.setCurrentIndex(index)
                     
                 # 复选框
                 self.ignore_duplicate_checkbox.setChecked(bool(DEFAULT_CONFIG.get("ignore_duplicate", False)))

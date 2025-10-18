@@ -10,7 +10,7 @@ import os
 from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
-from warning_banner import WarningBanner  # 导入警告横幅
+from warning_banner_cpu import WarningBanner  # 导入警告横幅(CPU版本)
 from config import load_config, get_config_path
 from logger_config import logger, setup_logger
 from tray_manager import TrayManager
