@@ -10,10 +10,12 @@ from PySide6.QtWidgets import (QWidget, QApplication, QLabel, QGraphicsView,
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtCore import Qt, QTimer, Signal, QPoint, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import (QFont, QPainter, QColor, QPen, QPixmap, QPolygon, QBrush, 
-                          QShowEvent, QPaintEvent, QMouseEvent, QSurfaceFormat)
+                          QShowEvent, QSurfaceFormat)
 from logger_config import logger
 from typing import Dict, Union, Optional
 from config import load_config
+from PySide6.QtWidgets import QGraphicsItem
+from typing import Any
 
 
 class WarningBanner(QWidget):
@@ -407,7 +409,7 @@ class WarningBanner(QWidget):
             click_rect.setBrush(QColor(0, 0, 0, 1))  # 几乎完全透明的画刷
             
             # 重写矩形项的鼠标事件
-            def mousePressEvent(item, event):
+            def mousePressEvent(item: QGraphicsItem, event: Any) -> None:
                 if event.button() == Qt.MouseButton.LeftButton:
                     self.click_count += 1
                     if self.click_count >= self.click_to_close:

@@ -10,7 +10,8 @@ import os
 from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 from PySide6.QtCore import QTimer, QObject
 from notice_slider import NotificationWindow
-from warning_banner_cpu import WarningBanner  # 导入警告横幅(CPU版本)
+from warning_banner_cpu import WarningBanner as WarningBannerCPU  # 导入警告横幅(CPU版本)
+from warning_banner_gpu import WarningBanner as WarningBannerGPU  # 导入警告横幅(GPU版本)
 from config import load_config, get_config_path
 from logger_config import logger, setup_logger
 from tray_manager import TrayManager
@@ -20,6 +21,7 @@ from send_notification_dialog import SendNotificationDialog
 from banner_factory import create_banner  # 导入横幅工厂
 from license_manager import LicenseManager  # 导入许可证管理器
 from typing import Optional, List, Tuple, Union, Callable, cast, Dict
+
 
 def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: Dict[str, str], hardware_key: str):
     """显示许可证错误信息并退出程序
@@ -218,7 +220,7 @@ class ToastBannerManager(QObject):
         self.config_path = get_config_path()
         
         # 初始化成员变量
-        self.notification_windows: List[Union[NotificationWindow, WarningBanner]] = []
+        self.notification_windows: List[Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU]] = []
         self.last_notification: Optional[str] = None
         self.config_watcher: Optional[ConfigWatcher] = None
         self.config_timer: Optional[QTimer] = None
@@ -400,11 +402,11 @@ class ToastBannerManager(QObject):
                 return True
         return False
         
-    def remove_notification_window(self, window: NotificationWindow) -> None:
+    def remove_notification_window(self, window: Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU]) -> None:
         """从通知窗口列表中移除已关闭的窗口，并更新其他窗口的位置
         
         Args:
-            window (NotificationWindow): 要移除的通知窗口
+            window: 要移除的通知窗口
         """
         if window in self.notification_windows:
             # 从列表中移除窗口

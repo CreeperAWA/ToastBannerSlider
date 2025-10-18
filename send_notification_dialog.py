@@ -5,7 +5,7 @@
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, 
                                QPushButton, QMessageBox, QGroupBox, QFormLayout,
-                               QSpinBox, QLabel, QWidget)
+                               QSpinBox, QWidget)
 from PySide6.QtCore import Qt
 from logger_config import logger
 from config import load_config

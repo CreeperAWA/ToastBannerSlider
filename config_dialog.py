@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QPushButton, QGroupBox, QComboBox, QLabel,
                                QFileDialog, QMessageBox, QScrollArea, QWidget,
                                QFrame)
+from PySide6.QtCore import QAbstractItemModel
+from PySide6.QtGui import QStandardItemModel
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QIcon, QPixmap
 from logger_config import logger
@@ -592,25 +594,29 @@ class ConfigDialog(QDialog):
     def _update_gpu_options_enabled(self) -> None:
         """根据当前横幅样式更新GPU选项的启用/禁用状态"""
         current_style = self.banner_style_combo.currentData()
-        model = self.rendering_backend_combo.model()
         gpu_items = ["opengl", "opengles"]
 
+        # 获取模型
+        model: QAbstractItemModel = self.rendering_backend_combo.model()
+        
         if current_style == "default":
             # 使用默认横幅样式时不允许选择GPU渲染
             for i in range(self.rendering_backend_combo.count()):
                 item_data = self.rendering_backend_combo.itemData(i)
-                item = model.item(i)
-                if item_data in gpu_items:
-                    item.setEnabled(False)
-                    logger.debug(f"禁用GPU选项: {item_data}")
+                if isinstance(model, QStandardItemModel):
+                    item = model.item(i)
+                    if item and item_data in gpu_items:
+                        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+                        logger.debug(f"禁用GPU选项: {item_data}")
         else:
             # 使用警告样式时，GPU选项可用
             for i in range(self.rendering_backend_combo.count()):
                 item_data = self.rendering_backend_combo.itemData(i)
-                item = model.item(i)
-                if item_data in gpu_items:
-                    item.setEnabled(True)
-                    logger.debug(f"启用GPU选项: {item_data}")
+                if isinstance(model, QStandardItemModel):
+                    item = model.item(i)
+                    if item and item_data in gpu_items:
+                        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled)
+                        logger.debug(f"启用GPU选项: {item_data}")
 
     def _on_rendering_backend_changed(self, index: int) -> None:
         """当渲染后端改变时，根据是否为GPU模式控制透明度设置的可见性，
