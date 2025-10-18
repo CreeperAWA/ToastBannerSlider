@@ -34,7 +34,8 @@ DEFAULT_CONFIG: Dict[str, Union[str, float, int, bool, None]] = {
     "ignore_duplicate": False,       # 忽略重复通知
     "do_not_disturb": False,         # 免打扰模式
     "custom_icon": None,             # 自定义图标文件名
-    "banner_style": "default"        # 横幅样式: default(默认), warning(警告)
+    "banner_style": "default",       # 横幅样式: default(默认), warning(警告)
+    "rendering_backend": "default"   # 渲染后端: default(默认), opengl(OpenGL), opengles(OpenGL ES), vulkan(Vulkan), direct3d(Direct3D)
 }
 
 

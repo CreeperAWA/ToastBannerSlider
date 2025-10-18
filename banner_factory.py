@@ -29,7 +29,7 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
     # 根据样式创建对应的横幅实例
     if banner_style == "warning":
         # 创建警告样式横幅
-        banner = WarningBanner(text=message, y_offset=vertical_offset)
+        banner = WarningBanner(text=message, y_offset=vertical_offset, config=config)
         return banner
     else:
         # 创建默认样式横幅

@@ -29,11 +29,6 @@ def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: D
         hardware_info: 已获取的硬件信息
         hardware_key: 已生成的硬件标识
     """
-    # 创建并显示错误消息框
-    msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Icon.Critical)
-    msg_box.setWindowTitle("许可证错误")
-    
     # 构造机器码信息
     machine_code = f"""CPU序列号: {hardware_info['cpu']}
 硬盘序列号: {hardware_info['disk']}
@@ -58,6 +53,10 @@ def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: D
 点击"复制"按钮将机器码复制到剪贴板。
 """
     
+    # 创建并显示错误消息框
+    msg_box = QMessageBox()
+    msg_box.setIcon(QMessageBox.Icon.Critical)
+    msg_box.setWindowTitle("许可证错误")
     msg_box.setText(message)
     
     # 添加复制按钮
@@ -90,6 +89,61 @@ def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: D
 config = load_config()
 setup_logger(config)
 
+# 检查渲染后端配置
+rendering_backend = config.get("rendering_backend", "default")
+if rendering_backend != "default":
+    # 设置指定的渲染后端（必须在创建QApplication之前设置）
+    from PySide6.QtCore import Qt
+    try:
+        if rendering_backend == "opengl":
+            QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL)
+            logger.info("已请求使用OpenGL渲染后端")
+        elif rendering_backend == "opengles":
+            QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseOpenGLES)
+            logger.info("已请求使用OpenGL ES渲染后端")
+    except Exception as e:
+        logger.error(f"设置渲染后端时出错: {e}")
+        logger.warning(f"无法设置{rendering_backend}渲染后端，将使用默认渲染")
+
+# 初始化Qt应用程序
+app = QApplication(sys.argv)
+
+# 检查实际的渲染状态
+rendering_backend = config.get("rendering_backend", "default")
+if rendering_backend == "default":
+    logger.info("使用默认渲染方式")
+else:
+    from PySide6.QtCore import Qt
+    try:
+        if rendering_backend == "opengl":
+            if QApplication.testAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL):
+                logger.info("确认：已成功启用OpenGL渲染后端")
+            else:
+                logger.warning("配置请求使用OpenGL渲染后端，但实际未生效")
+        elif rendering_backend == "opengles":
+            if QApplication.testAttribute(Qt.ApplicationAttribute.AA_UseOpenGLES):
+                logger.info("确认：已成功启用OpenGL ES渲染后端")
+            else:
+                logger.warning("配置请求使用OpenGL ES渲染后端，但实际未生效")
+        else:
+            logger.warning(f"未知的渲染后端配置: {rendering_backend}")
+    except Exception as e:
+        logger.error(f"检查渲染后端状态时出错: {e}")
+        logger.warning(f"无法验证{rendering_backend}渲染后端状态")
+
+app.setApplicationName("ToastBannerSlider")
+app.setApplicationDisplayName("Toast Banner Slider")
+app.setOrganizationName("CreeperAWA")
+app.setOrganizationDomain("github.com/CreeperAWA")
+app.setQuitOnLastWindowClosed(False)
+
+# 设置 Windows 应用程序 User Model ID
+try:
+    from ctypes import windll
+    windll.shell32.SetCurrentProcessExplicitAppUserModelID("ToastBannerSlider")
+except Exception as e:
+    logger.warning(f"设置应用程序User Model ID失败: {e}")
+
 # 程序启动时进行许可证验证（仅检查，不处理UI）
 license_manager = LicenseManager()
 # 预先获取硬件信息，避免重复加载
@@ -98,8 +152,7 @@ hardware_key = license_manager.generate_hardware_key()
 
 if not license_manager.verify_license():
     logger.error("许可证验证失败，程序无法启动。")
-    # 初始化Qt应用程序以显示消息框
-    app = QApplication(sys.argv)
+    # 直接使用已创建的app实例
     # 传递已获取的硬件信息，避免重复加载
     show_license_info_and_exit(license_manager, hardware_info, hardware_key)
 
@@ -192,6 +245,28 @@ class ToastBannerManager(QObject):
         self.message_history = []
         self.has_notifications = False
         
+        # 记录渲染后端状态
+        rendering_backend = self.config.get("rendering_backend", "default")
+        if rendering_backend == "default":
+            logger.info("当前使用默认渲染方式")
+        else:
+            logger.info(f"当前请求使用{rendering_backend}渲染后端")
+            
+            # 检查实际渲染状态
+            from PySide6.QtCore import Qt
+            try:
+                if rendering_backend == "opengl" and QApplication.testAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL):
+                    logger.info("确认：当前已成功应用OpenGL渲染后端")
+                elif rendering_backend == "opengles" and QApplication.testAttribute(Qt.ApplicationAttribute.AA_UseOpenGLES):
+                    logger.info("确认：当前已成功应用OpenGL ES渲染后端")
+                elif rendering_backend not in ["opengl", "opengles", "default"]:
+                    logger.warning(f"未知的渲染后端配置: {rendering_backend}")
+                else:
+                    logger.warning(f"配置请求使用{rendering_backend}渲染后端，但实际未生效")
+            except Exception as e:
+                logger.error(f"检查渲染后端状态时出错: {e}")
+                logger.warning(f"无法验证{rendering_backend}渲染后端状态")
+
         # 创建并启动配置文件观察者
         self.config_watcher = ConfigWatcher(self.config_path)
         self.config_watcher.config_changed_callback = self.update_config
@@ -572,11 +647,7 @@ class ToastBannerManager(QObject):
 
 
 def main():
-    """主函数"""
-    global app
-    
-    # 初始化日志 (使用默认设置)
-    setup_logger()
+    """主函数 - 程序入口点"""
     logger.info("正在启动ToastBannerSlider...")
 
     # 打印启动信息
@@ -584,14 +655,6 @@ def main():
     print("Toast 横幅通知系统")
     print("=" * 30)
     print("正在启动...")
-
-    # 初始化Qt应用程序
-    app = QApplication(sys.argv)
-    app.setApplicationName("ToastBannerSlider")
-    app.setApplicationDisplayName("Toast Banner Slider")
-    app.setOrganizationName("CreeperAWA")
-    app.setOrganizationDomain("github.com/CreeperAWA")
-    app.setQuitOnLastWindowClosed(False)
 
     # 设置 Windows 应用程序 User Model ID
     try:

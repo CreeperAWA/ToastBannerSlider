@@ -27,6 +27,40 @@ class TrayIconUpdateEvent(QEvent):
 class ConfigDialog(QDialog):
     """配置对话框"""
     
+    # 类属性类型注解
+    config: Dict[str, Union[str, float, int, bool, None]]
+    
+    # UI组件属性
+    title_edit: QLineEdit
+    speed_spinbox: QDoubleSpinBox
+    scroll_count_spinbox: QSpinBox
+    click_close_spinbox: QSpinBox
+    spacing_spinbox: QSpinBox
+    font_size_spinbox: QDoubleSpinBox
+    left_margin_spinbox: QSpinBox
+    right_margin_spinbox: QSpinBox
+    icon_scale_spinbox: QDoubleSpinBox
+    label_offset_x_spinbox: QSpinBox
+    window_height_spinbox: QSpinBox
+    label_mask_width_spinbox: QSpinBox
+    banner_spacing_spinbox: QSpinBox
+    shift_duration_spinbox: QSpinBox
+    fade_duration_spinbox: QSpinBox
+    base_vertical_offset_spinbox: QSpinBox
+    banner_opacity_spinbox: QDoubleSpinBox
+    scroll_mode_combo: QComboBox
+    log_level_combo: QComboBox
+    ignore_duplicate_checkbox: QCheckBox
+    dnd_checkbox: QCheckBox
+    rendering_backend_combo: QComboBox
+    icon_edit: QLineEdit
+    icon_preview_label: QLabel
+    
+    # 按钮属性
+    ok_button: QPushButton
+    cancel_button: QPushButton
+    reset_button: QPushButton
+    
     def __init__(self, parent: QWidgetType | None = None) -> None:
         """初始化配置对话框"""
         try:
@@ -126,21 +160,21 @@ class ConfigDialog(QDialog):
             button_layout = QHBoxLayout()
             
             # 恢复默认按钮
-            reset_button = QPushButton("恢复默认")
-            reset_button.clicked.connect(self._on_reset)
-            button_layout.addWidget(reset_button)
+            self.reset_button = QPushButton("恢复默认")
+            self.reset_button.clicked.connect(self._on_reset)
+            button_layout.addWidget(self.reset_button)
             
             # 添加伸展
             button_layout.addStretch()
             
             # 确定和取消按钮
-            ok_button = QPushButton("确定")
-            ok_button.clicked.connect(self._on_ok)
-            cancel_button = QPushButton("取消")
-            cancel_button.clicked.connect(self._on_cancel)
+            self.ok_button = QPushButton("确定")
+            self.ok_button.clicked.connect(self._on_ok)
+            self.cancel_button = QPushButton("取消")
+            self.cancel_button.clicked.connect(self._on_cancel)
             
-            button_layout.addWidget(ok_button)
-            button_layout.addWidget(cancel_button)
+            button_layout.addWidget(self.ok_button)
+            button_layout.addWidget(self.cancel_button)
             
             main_layout.addLayout(button_layout)
             
@@ -429,6 +463,22 @@ class ConfigDialog(QDialog):
             self.dnd_checkbox.setChecked(bool(self.config.get("do_not_disturb", False)))
             layout.addRow(self.dnd_checkbox)
             
+            # 渲染后端选项
+            self.rendering_backend_combo = QComboBox()
+            self.rendering_backend_combo.addItem("默认 (CPU渲染)", "default")
+            self.rendering_backend_combo.addItem("OpenGL (GPU渲染)", "opengl")
+            self.rendering_backend_combo.addItem("OpenGL ES (GPU渲染)", "opengles")
+            current_backend = self.config.get("rendering_backend", "default")
+            index = self.rendering_backend_combo.findData(current_backend)
+            if index >= 0:
+                self.rendering_backend_combo.setCurrentIndex(index)
+            else:
+                # 如果找不到对应的数据，设置为默认值
+                default_index = self.rendering_backend_combo.findData("default")
+                if default_index >= 0:
+                    self.rendering_backend_combo.setCurrentIndex(default_index)
+            layout.addRow("渲染后端:", self.rendering_backend_combo)
+            
             return group
         except Exception as e:
             logger.error(f"创建高级设置组时出错: {e}")
@@ -502,6 +552,16 @@ class ConfigDialog(QDialog):
             # 连接图标选择相关信号
             self.icon_edit.textChanged.connect(self._on_icon_changed)
             
+            # 连接确定按钮
+            self.ok_button.clicked.connect(self._on_ok)
+            
+            # 连接取消按钮
+            self.cancel_button.clicked.connect(self._on_cancel)
+            
+            # 连接恢复默认按钮
+            self.reset_button.clicked.connect(self._on_reset)
+            
+            logger.debug("配置对话框信号连接完成")
         except Exception as e:
             logger.error(f"连接配置对话框信号时出错: {e}")
             
@@ -546,130 +606,107 @@ class ConfigDialog(QDialog):
         try:
             logger.debug("处理清除图标事件")
             
-            # 清除编辑框
+            # 只清除编辑框，不立即删除文件
             self.icon_edit.clear()
             
-            # 如果有之前的图标文件，删除它
-            current_icon = self.config.get("custom_icon")
-            if current_icon:
-                config_dir = os.path.dirname(get_config_path())
-                icons_dir = os.path.join(config_dir, "icons")
-                icon_path = os.path.join(icons_dir, str(current_icon))
-                if os.path.exists(icon_path):
-                    os.remove(icon_path)
-                    
             logger.debug("图标已清除")
-            
-            # 立即更新托盘图标
-            if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
-                try:
-                    self.parent().update_config()  # type: ignore
-                except Exception:
-                    pass
         except Exception as e:
             logger.error(f"处理清除图标事件时出错: {e}")
             QMessageBox.critical(self, "错误", f"清除图标文件时出错: {e}")
             
-    def _on_icon_changed(self, text: str) -> None:
-        """处理图标文本变化事件
-        
-        Args:
-            text (str): 新的图标文件名
-        """
+    def _on_ok(self) -> None:
+        """处理确定事件"""
         try:
-            logger.debug(f"处理图标文本变化事件: {text}")
-            self._update_icon_preview()
-        except Exception as e:
-            logger.error(f"处理图标文本变化事件时出错: {e}")
+            logger.debug("处理确定事件")
             
-    def _update_icon_preview(self) -> None:
-        """更新图标预览"""
+            # 收集配置
+            new_config: Dict[str, Union[str, float, int, bool, None]] = {
+                "notification_title": self.title_edit.text(),
+                "scroll_speed": self.speed_spinbox.value(),
+                "scroll_count": self.scroll_count_spinbox.value(),
+                "click_to_close": self.click_close_spinbox.value(),
+                "right_spacing": self.spacing_spinbox.value(),
+                "font_size": self.font_size_spinbox.value(),
+                "left_margin": self.left_margin_spinbox.value(),
+                "right_margin": self.right_margin_spinbox.value(),
+                "icon_scale": self.icon_scale_spinbox.value(),
+                "label_offset_x": self.label_offset_x_spinbox.value(),
+                "window_height": self.window_height_spinbox.value(),
+                "label_mask_width": self.label_mask_width_spinbox.value(),
+                "banner_spacing": self.banner_spacing_spinbox.value(),
+                "shift_animation_duration": self.shift_duration_spinbox.value(),
+                "fade_animation_duration": self.fade_duration_spinbox.value(),
+                "base_vertical_offset": self.base_vertical_offset_spinbox.value(),
+                # 更新横幅透明度的保存逻辑
+                "banner_opacity": self.banner_opacity_spinbox.value(),
+                "log_level": self.log_level_combo.currentData(),
+                "scroll_mode": self.scroll_mode_combo.currentData(),
+                "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
+                "do_not_disturb": self.dnd_checkbox.isChecked(),
+                "rendering_backend": self.rendering_backend_combo.currentData(),
+                "custom_icon": self.icon_edit.text().strip() if self.icon_edit.text().strip() else None
+            }
+            
+            # 保存配置
+            if save_config(new_config):
+                logger.debug("配置已保存")
+                
+                # 检查图标是否发生变化
+                old_icon = self.config.get("custom_icon")
+                new_icon = new_config.get("custom_icon")
+                
+                # 如果图标被清除（之前有图标，现在没有了），删除旧图标文件
+                if old_icon and not new_icon:
+                    config_dir = os.path.dirname(get_config_path())
+                    icons_dir = os.path.join(config_dir, "icons")
+                    old_icon_path = os.path.join(icons_dir, str(old_icon))
+                    if os.path.exists(old_icon_path):
+                        try:
+                            os.remove(old_icon_path)
+                            logger.debug(f"已删除旧图标文件: {old_icon_path}")
+                        except Exception as e:
+                            logger.error(f"删除旧图标文件时出错: {e}")
+                
+                # 如果图标被更改（之前有图标，现在有不同图标），删除旧图标文件
+                if old_icon and new_icon and old_icon != new_icon:
+                    config_dir = os.path.dirname(get_config_path())
+                    icons_dir = os.path.join(config_dir, "icons")
+                    old_icon_path = os.path.join(icons_dir, str(old_icon))
+                    if os.path.exists(old_icon_path):
+                        try:
+                            os.remove(old_icon_path)
+                            logger.debug(f"已删除旧图标文件: {old_icon_path}")
+                        except Exception as e:
+                            logger.error(f"删除旧图标文件时出错: {e}")
+                
+                self.config = new_config
+                
+                # 如果图标发生变化，通知主程序更新托盘图标
+                if (old_icon is None and new_icon is not None) or \
+                   (old_icon is not None and new_icon is None) or \
+                   (old_icon != new_icon):
+                    if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
+                        try:
+                            self.parent().update_config()  # type: ignore
+                        except Exception:
+                            pass
+                self.accept()
+            else:
+                logger.error("保存配置失败")
+                QMessageBox.critical(self, "错误", "保存配置失败")
+        except Exception as e:
+            logger.error(f"处理确定事件时出错: {e}")
+            QMessageBox.critical(self, "错误", f"保存配置时出错: {e}")
+            
+    def _on_cancel(self) -> None:
+        """处理取消事件"""
         try:
-            logger.debug("更新图标预览")
-            
-            icon_text = self.icon_edit.text().strip()
-            if icon_text:
-                # 获取图标目录
-                config_dir = os.path.dirname(get_config_path())
-                icons_dir = os.path.join(config_dir, "icons")
-                icon_path = os.path.join(icons_dir, icon_text)
-                
-                logger.debug(f"图标目录路径: {icons_dir}")
-                logger.debug(f"完整图标路径: {icon_path}")
-                
-                if os.path.exists(icon_path):
-                    icon = QIcon(icon_path)
-                    if not icon.isNull():
-                        # 使用更大的尺寸和更好的缩放质量来显示图标预览
-                        pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
-                        if pixmap.isNull():
-                            # 如果无法获取指定尺寸的pixmap，尝试使用默认尺寸
-                            available_sizes = icon.availableSizes()
-                            if available_sizes:
-                                pixmap = icon.pixmap(available_sizes[0])
-                            else:
-                                pixmap = QPixmap(48, 48)
-                        # 缩放到预览框大小，使用平滑变换
-                        pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                        self.icon_preview_label.setPixmap(pixmap)
-                        logger.debug(f"图标预览已更新: {icon_path}")
-                        return
-                    else:
-                        logger.warning(f"图标文件无效: {icon_path}")
-                else:
-                    logger.warning(f"图标文件不存在: {icon_path}")
-            
-            # 使用默认图标预览
-            logger.debug("使用默认图标预览")
-            # 尝试加载notification_icon.ico
-            resource_icon_path = get_resource_path("notification_icon.ico")
-            if os.path.exists(resource_icon_path):
-                icon = QIcon(resource_icon_path)
-                if not icon.isNull():
-                    pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
-                    if pixmap.isNull():
-                        available_sizes = icon.availableSizes()
-                        if available_sizes:
-                            pixmap = icon.pixmap(available_sizes[0])
-                        else:
-                            pixmap = QPixmap(48, 48)
-                    pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.icon_preview_label.setPixmap(pixmap)
-                    logger.debug(f"使用默认资源图标预览(ico): {resource_icon_path}")
-                    return
-            
-            # 尝试加载notification_icon.png
-            resource_icon_path = get_resource_path("notification_icon.png")
-            if os.path.exists(resource_icon_path):
-                icon = QIcon(resource_icon_path)
-                if not icon.isNull():
-                    pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
-                    if pixmap.isNull():
-                        available_sizes = icon.availableSizes()
-                        if available_sizes:
-                            pixmap = icon.pixmap(available_sizes[0])
-                        else:
-                            pixmap = QPixmap(48, 48)
-                    pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                    self.icon_preview_label.setPixmap(pixmap)
-                    logger.debug(f"使用默认资源图标预览(png): {resource_icon_path}")
-                    return
-            
-            # 如果所有尝试都失败了，创建一个简单的默认图像
-            pixmap = QPixmap(48, 48)
-            pixmap.fill(Qt.GlobalColor.gray)
-            self.icon_preview_label.setPixmap(pixmap)
-            logger.debug("使用灰色默认图标预览")
+            logger.debug("处理取消事件")
+            # 拒绝对话框
+            self.reject()
         except Exception as e:
-            logger.error(f"更新图标预览时出错: {e}")
-            # 出错时显示一个简单的默认图像
-            try:
-                pixmap = QPixmap(48, 48)
-                pixmap.fill(Qt.GlobalColor.gray)
-                self.icon_preview_label.setPixmap(pixmap)
-            except Exception as e2:
-                logger.error(f"设置默认图标预览时出错: {e2}")
-                
+            logger.error(f"处理取消事件时出错: {e}")
+            
     def _on_reset(self) -> None:
         """处理恢复默认事件"""
         try:
@@ -714,121 +751,93 @@ class ConfigDialog(QDialog):
                 if index >= 0:
                     self.log_level_combo.setCurrentIndex(index)
                     
+                # 渲染后端
+                index = self.rendering_backend_combo.findData(DEFAULT_CONFIG.get("rendering_backend", "default"))
+                if index >= 0:
+                    self.rendering_backend_combo.setCurrentIndex(index)
+                    
                 # 复选框
                 self.ignore_duplicate_checkbox.setChecked(bool(DEFAULT_CONFIG.get("ignore_duplicate", False)))
                 self.dnd_checkbox.setChecked(bool(DEFAULT_CONFIG.get("do_not_disturb", False)))
         except Exception as e:
             logger.error(f"处理恢复默认事件时出错: {e}")
             
-    def _on_ok(self) -> None:
-        """处理确定事件"""
-        try:
-            logger.debug("处理确定事件")
-            
-            # 收集配置
-            new_config: Dict[str, Union[str, float, int, bool, None]] = {
-                "notification_title": self.title_edit.text(),
-                "scroll_speed": self.speed_spinbox.value(),
-                "scroll_count": self.scroll_count_spinbox.value(),
-                "click_to_close": self.click_close_spinbox.value(),
-                "right_spacing": self.spacing_spinbox.value(),
-                "font_size": self.font_size_spinbox.value(),
-                "left_margin": self.left_margin_spinbox.value(),
-                "right_margin": self.right_margin_spinbox.value(),
-                "icon_scale": self.icon_scale_spinbox.value(),
-                "label_offset_x": self.label_offset_x_spinbox.value(),
-                "window_height": self.window_height_spinbox.value(),
-                "label_mask_width": self.label_mask_width_spinbox.value(),
-                "banner_spacing": self.banner_spacing_spinbox.value(),
-                "shift_animation_duration": self.shift_duration_spinbox.value(),
-                "fade_animation_duration": self.fade_duration_spinbox.value(),
-                "base_vertical_offset": self.base_vertical_offset_spinbox.value(),
-                # 更新横幅透明度的保存逻辑
-                "banner_opacity": self.banner_opacity_spinbox.value(),
-                "banner_style": self.banner_style_combo.currentData(),  # 添加横幅样式配置项
-                "log_level": self.log_level_combo.currentData(),
-                "scroll_mode": self.scroll_mode_combo.currentData(),
-                "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
-                "do_not_disturb": self.dnd_checkbox.isChecked(),
-                "custom_icon": self.icon_edit.text().strip() if self.icon_edit.text().strip() else None
-            }
-            
-            # 保存配置
-            if save_config(new_config):
-                logger.debug("配置已保存")
-                # 检查图标是否发生变化
-                old_icon = self.config.get("custom_icon")
-                new_icon = new_config.get("custom_icon")
-                self.config = new_config
-                if (old_icon is None and new_icon is not None) or \
-                   (old_icon is not None and new_icon is None) or \
-                   (old_icon != new_icon):
-                    # 图标发生变化，通知主程序更新托盘图标
-                    if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'update_config'):
-                        try:
-                            self.parent().update_config()  # type: ignore
-                        except Exception:
-                            pass
-                self.accept()
-            else:
-                logger.error("保存配置失败")
-                QMessageBox.critical(self, "错误", "保存配置失败")
-        except Exception as e:
-            logger.error(f"处理确定事件时出错: {e}")
-            QMessageBox.critical(self, "错误", f"保存配置时出错: {e}")
-            
-    def _on_cancel(self) -> None:
-        """处理取消事件"""
-        try:
-            logger.debug("处理取消事件")
-            # 拒绝对话框
-            self.reject()
-        except Exception as e:
-            logger.error(f"处理取消事件时出错: {e}")
-            
-    def _save_config(self) -> bool:
-        """保存配置
+    def _on_icon_changed(self, text: str) -> None:
+        """处理图标文本变化事件
         
-        Returns:
-            bool: 保存成功返回True，失败返回False
+        Args:
+            text (str): 新的图标文件名
         """
         try:
-            # 获取当前配置
-            config = load_config()
-            
-            # 更新配置值
-            config["notification_title"] = self.title_edit.text()
-            config["scroll_speed"] = float(self.speed_spinbox.value())
-            config["scroll_count"] = int(self.scroll_count_spinbox.value())
-            config["click_to_close"] = int(self.click_close_spinbox.value())
-            config["right_spacing"] = int(self.spacing_spinbox.value())
-            config["font_size"] = float(self.font_size_spinbox.value())
-            config["left_margin"] = int(self.left_margin_spinbox.value())
-            config["right_margin"] = int(self.right_margin_spinbox.value())
-            config["icon_scale"] = float(self.icon_scale_spinbox.value())
-            config["label_offset_x"] = int(self.label_offset_x_spinbox.value())
-            config["window_height"] = int(self.window_height_spinbox.value())
-            config["label_mask_width"] = int(self.label_mask_width_spinbox.value())
-            config["banner_spacing"] = int(self.banner_spacing_spinbox.value())
-            config["shift_animation_duration"] = int(self.shift_duration_spinbox.value())
-            config["fade_animation_duration"] = int(self.fade_duration_spinbox.value())
-            config["base_vertical_offset"] = int(self.base_vertical_offset_spinbox.value())
-            config["banner_opacity"] = float(self.banner_opacity_spinbox.value())
-            config["scroll_mode"] = self.scroll_mode_combo.currentData()
-            config["log_level"] = self.log_level_combo.currentData()
-            config["ignore_duplicate"] = self.ignore_duplicate_checkbox.isChecked()
-            config["do_not_disturb"] = self.dnd_checkbox.isChecked()
-            config["custom_icon"] = self.icon_edit.text() if self.icon_edit.text() else None
-            config["banner_style"] = self.banner_style_combo.currentData()  # 保存横幅样式
-            
-            # 保存配置
-            success = save_config(config)
-            if success:
-                logger.info("配置保存成功")
-            else:
-                logger.error("配置保存失败")
-                
-            return success
+            logger.debug(f"处理图标文本变化事件: {text}")
+            self._update_icon_preview()
         except Exception as e:
-            logger.error(f"保存配置时出错: {e}")
-            return False
+            logger.error(f"处理图标文本变化事件时出错: {e}")
+            
+    def _update_icon_preview(self) -> None:
+        """更新图标预览"""
+        try:
+            logger.debug("更新图标预览")
+            
+            icon_text = self.icon_edit.text().strip()
+            if icon_text:
+                # 获取图标目录
+                config_dir = os.path.dirname(get_config_path())
+                icons_dir = os.path.join(config_dir, "icons")
+                icon_path = os.path.join(icons_dir, icon_text)
+                
+                logger.debug(f"图标目录路径: {icons_dir}")
+                
+                if os.path.exists(icon_path):
+                    icon = QIcon(icon_path)
+                    if not icon.isNull():
+                        # 使用更大的尺寸和更好的缩放质量来显示图标预览
+                        pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
+                        if pixmap.isNull():
+                            # 如果无法获取指定尺寸的pixmap，尝试使用默认尺寸
+                            pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                        # 缩放到预览框大小，使用平滑变换
+                        pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                        self.icon_preview_label.setPixmap(pixmap)
+                        logger.debug(f"图标预览已更新: {icon_path}")
+                        return
+            
+            # 使用默认图标预览
+            logger.debug("使用默认图标预览")
+            # 尝试加载notification_icon.ico
+            resource_icon_path = get_resource_path("notification_icon.ico")
+            if os.path.exists(resource_icon_path):
+                icon = QIcon(resource_icon_path)
+                if not icon.isNull():
+                    pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
+                    if pixmap.isNull():
+                        pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                    pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    self.icon_preview_label.setPixmap(pixmap)
+                    return
+            
+            # 尝试加载notification_icon.png
+            resource_icon_path = get_resource_path("notification_icon.png")
+            if os.path.exists(resource_icon_path):
+                icon = QIcon(resource_icon_path)
+                if not icon.isNull():
+                    pixmap = icon.pixmap(48, 48, QIcon.Mode.Normal, QIcon.State.On)
+                    if pixmap.isNull():
+                        pixmap = icon.pixmap(icon.availableSizes()[0]) if icon.availableSizes() else QPixmap(48, 48)
+                    pixmap = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                    self.icon_preview_label.setPixmap(pixmap)
+                    return
+            
+            # 如果所有尝试都失败了，创建一个简单的默认图像
+            pixmap = QPixmap(48, 48)
+            pixmap.fill(Qt.GlobalColor.gray)
+            self.icon_preview_label.setPixmap(pixmap)
+        except Exception as e:
+            logger.error(f"更新图标预览时出错: {e}")
+            # 出错时显示一个简单的默认图像
+            try:
+                pixmap = QPixmap(48, 48)
+                pixmap.fill(Qt.GlobalColor.gray)
+                self.icon_preview_label.setPixmap(pixmap)
+            except Exception as e2:
+                logger.error(f"设置默认图标预览时出错: {e2}")
