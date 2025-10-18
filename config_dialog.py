@@ -639,6 +639,7 @@ class ConfigDialog(QDialog):
                 "base_vertical_offset": self.base_vertical_offset_spinbox.value(),
                 # 更新横幅透明度的保存逻辑
                 "banner_opacity": self.banner_opacity_spinbox.value(),
+                "banner_style": self.banner_style_combo.currentData(),  # 添加横幅样式配置项
                 "log_level": self.log_level_combo.currentData(),
                 "scroll_mode": self.scroll_mode_combo.currentData(),
                 "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
