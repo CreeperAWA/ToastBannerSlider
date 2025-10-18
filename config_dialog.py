@@ -545,7 +545,7 @@ class ConfigDialog(QDialog):
 
             preview_frame = QFrame()
             preview_frame.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Sunken)
-            preview_frame.setFixedSize(64, 64)
+            preview_frame.setFixedSize(48, 48)
             
             preview_inner_layout = QHBoxLayout(preview_frame)
             preview_inner_layout.setContentsMargins(0, 0, 0, 0)
