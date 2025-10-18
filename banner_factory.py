@@ -27,6 +27,11 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
     # 获取横幅样式配置
     banner_style = config.get("banner_style", "default")
     
+    # 处理换行符：对于警告样式，将换行符替换为空格
+    processed_message = message
+    if banner_style == "warning":
+        processed_message = " ".join(message.splitlines())
+    
     # 根据样式创建对应的横幅实例
     if banner_style == "warning":
         # 获取渲染后端配置
@@ -35,12 +40,12 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
         # 根据渲染后端选择对应的WarningBanner版本
         if rendering_backend in ["opengl", "opengles"]:
             # 使用GPU渲染版本
-            banner = WarningBannerGPU(text=message, y_offset=vertical_offset)
+            banner = WarningBannerGPU(text=processed_message, y_offset=vertical_offset)
         else:
             # 使用CPU渲染版本
-            banner = WarningBannerCPU(text=message, y_offset=vertical_offset)
+            banner = WarningBannerCPU(text=processed_message, y_offset=vertical_offset)
         return banner
     else:
         # 创建默认样式横幅
-        banner = NotificationWindow(message=message, vertical_offset=vertical_offset, max_scrolls=max_scrolls)
+        banner = NotificationWindow(message=processed_message, vertical_offset=vertical_offset, max_scrolls=max_scrolls)
         return banner
