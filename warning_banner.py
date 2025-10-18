@@ -322,7 +322,14 @@ class WarningBanner(QWidget):
             self.text_proxy.setWidget(self.message_text)
             # self.text_proxy.setTransformationMode(Qt.TransformationMode.SmoothTransformation)  # 平滑变换减少拖影
             self.scene.addItem(self.text_proxy)
-        # 如果不启用GPU渲染，文本将直接显示在窗口上
+        else:
+            # CPU渲染模式：将文本标签添加到窗口中并设置初始位置
+            self.message_text.setParent(self)
+            # 计算垂直居中位置
+            window_height = self.height()
+            vertical_center_position = (window_height - self.text_height) // 2
+            self.message_text.move(self.width(), vertical_center_position)  # 初始位置在右侧不可见
+            self.message_text.hide()  # 初始隐藏，防止旧内容闪现
 
     def _setup_animations(self) -> None:
         """设置动画"""
@@ -462,10 +469,16 @@ class WarningBanner(QWidget):
             # 重置位置并重新开始动画 (与CPU版本保持一致)
             if use_gpu_rendering and self.text_proxy:
                 # GPU渲染模式：重置代理部件位置
-                self.text_proxy.setPos(self.width(), 0)
+                # 计算垂直居中位置
+                window_height = self.height()
+                vertical_center_position = (window_height - self.text_height) // 2
+                self.text_proxy.setPos(self.width(), vertical_center_position)
             elif self.message_text:
                 # CPU渲染模式：重置消息文本部件位置
-                self.message_text.move(self.width(), 0)
+                # 计算垂直居中位置
+                window_height = self.height()
+                vertical_center_position = (window_height - self.text_height) // 2
+                self.message_text.move(self.width(), vertical_center_position)
             
             if self.text_animation:
                 # 确保动画状态正确再启动
@@ -486,6 +499,10 @@ class WarningBanner(QWidget):
             # 确保场景正确显示
             if self.scene and self.graphics_view:
                 self.graphics_view.setScene(self.scene)
+        else:
+            # CPU渲染模式下显示消息文本
+            if self.message_text:
+                self.message_text.show()
         
         # 开始淡入动画 (与CPU版本保持一致)
         if self.fade_in:
