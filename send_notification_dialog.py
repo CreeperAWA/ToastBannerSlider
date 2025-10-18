@@ -83,6 +83,8 @@ class SendNotificationDialog(QDialog):
             self.text_edit = QTextEdit()
             self.text_edit.setPlaceholderText("请输入要发送的通知内容...")
             self.text_edit.setMaximumHeight(150)
+            # 设置为纯文本模式，禁止富文本输入
+            self.text_edit.setAcceptRichText(False)
             content_layout.addWidget(self.text_edit)
             
             main_layout.addWidget(content_group)
