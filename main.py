@@ -92,9 +92,12 @@ def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: D
 config = load_config()
 setup_logger(config)
 
+# 检查是否启用了 Qt Quick (QML 渲染)
+enable_qt_quick = config.get("enable_qt_quick", False)
+
 # 检查渲染后端配置
 rendering_backend = config.get("rendering_backend", "default")
-if rendering_backend != "default":
+if not enable_qt_quick and rendering_backend != "default":
     # 设置指定的渲染后端（必须在创建QApplication之前设置）
     from PySide6.QtCore import Qt
     try:
@@ -120,7 +123,9 @@ app = QApplication(sys.argv)
 
 # 检查实际的渲染状态
 rendering_backend = config.get("rendering_backend", "default")
-if rendering_backend == "default":
+if enable_qt_quick:
+    logger.info("已启用 Qt Quick (QML 渲染)，渲染后端设置已忽略")
+elif rendering_backend == "default":
     logger.info("使用默认渲染方式")
 else:
     from PySide6.QtCore import Qt
