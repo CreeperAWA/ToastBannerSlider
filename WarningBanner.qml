@@ -138,21 +138,33 @@ Item {
             renderType: Text.QtRendering
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
+            // 添加文本渲染优化属性，解决长文本截断问题
+            textFormat: Text.PlainText
+            elide: Text.ElideNone
+            wrapMode: Text.NoWrap
         }
     }
     
-    // 条纹动画定时器
+    // 条纹动画 - 使用连续动画替代定时器
+    Behavior on stripeOffset {
+        NumberAnimation {
+            duration: 16
+            easing.type: Easing.Linear
+        }
+    }
+
+    // 启动条纹动画的定时器（只执行一次）
     Timer {
-        interval: 16  // 保持60 FPS
+        id: stripeAnimationTimer
+        interval: 16
         repeat: true
         running: true
         onTriggered: {
             stripeOffset = (stripeOffset + 1) % 32;
-            // 更新所有条纹画布
+            // 触发所有条纹重绘
             for (var i = 0; i < stripeCanvasRepeater.count; i++) {
                 var canvas = stripeCanvasRepeater.itemAt(i);
                 if (canvas) {
-                    // 使用 requestPaint 来触发重绘
                     canvas.requestPaint();
                 }
             }
@@ -197,7 +209,8 @@ Item {
         var endX = -(messageText.paintedWidth + rightSpacing);
         
         // 设置动画持续时间 (基于速度 px/s)，并四舍五入为整数
-        var scrollDistance = root.width + messageText.paintedWidth + rightSpacing;
+        // 修复计算方式，使用textContainer.width而不是root.width
+        var scrollDistance = textContainer.width + messageText.paintedWidth + rightSpacing;
         var duration = Math.round((scrollDistance / scrollSpeed) * 1000);
         bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX);
         
@@ -210,12 +223,14 @@ Item {
         }
         
         // 创建新的动画
-        textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + root.width + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
+        // 修复动画起始位置，使用textContainer.width而不是root.width
+        textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + textContainer.width + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
         
         textAnimation.finished.connect(function() {
             bannerObject.logDebug("文本动画完成，重新开始");
             // 当动画完成时，重新开始
-            messageText.x = root.width;
+            // 修复重新开始位置，使用textContainer.width而不是root.width
+            messageText.x = textContainer.width;
             startScrollingText();
         });
         
