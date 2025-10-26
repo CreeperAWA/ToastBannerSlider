@@ -30,14 +30,14 @@ Item {
         repeat: false
         onTriggered: {
             // 通过Python端记录日志
-            bannerObject.logInfo("QML配置参数:");
-            bannerObject.logInfo("  maxScrolls: " + maxScrolls);
-            bannerObject.logInfo("  scrollSpeed: " + scrollSpeed);
-            bannerObject.logInfo("  rightSpacing: " + rightSpacing);
-            bannerObject.logInfo("  bannerSpacing: " + bannerSpacing);
-            bannerObject.logInfo("  bannerText: " + bannerText);
-            bannerObject.logInfo("  bannerOpacity: " + bannerOpacity);
-            bannerObject.logInfo("  scrollMode: " + scrollMode);
+            bannerObject.logDebug("QML配置参数:");
+            bannerObject.logDebug("  maxScrolls: " + maxScrolls);
+            bannerObject.logDebug("  scrollSpeed: " + scrollSpeed);
+            bannerObject.logDebug("  rightSpacing: " + rightSpacing);
+            bannerObject.logDebug("  bannerSpacing: " + bannerSpacing);
+            bannerObject.logDebug("  bannerText: " + bannerText);
+            bannerObject.logDebug("  bannerOpacity: " + bannerOpacity);
+            bannerObject.logDebug("  scrollMode: " + scrollMode);
             
             // 延迟启动文本动画
             startTextAnimationTimer.start();
@@ -100,13 +100,15 @@ Item {
         model: 2  // 顶部和底部线条
         
         Rectangle {
-            id: line
-            x: 0
-            y: (index === 0) ? 0 : parent.height - 1
-            width: parent.width
-            height: 1
+            id: separatorLine
+            height: 4
             color: "#ccffde59"  // 带透明度的黄色
-            opacity: 0.7
+            width: parent.width
+            y: (index === 0) ? 32 : parent.height - 32 - 4
+            // 启用抗锯齿和层渲染以提高性能
+            antialiasing: true
+            layer.enabled: true
+            layer.smooth: true
         }
     }
     
@@ -125,31 +127,35 @@ Item {
             x: root.width
             y: (parent.height - paintedHeight) / 2
             text: bannerText ? bannerText : "默认文本"
-            font.pixelSize: 24
+            font.pixelSize: 48  // 增大字体大小从24到48
             font.bold: true
-            color: "#ffffff"
+            color: "#FFDE59"
             font.family: "Microsoft YaHei UI"
             // 启用层渲染和抗锯齿以提高性能和显示质量
             layer.enabled: true
             layer.smooth: true
             antialiasing: true
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
         }
     }
     
-    // 条纹动画
-    SequentialAnimation on stripeOffset {
-        id: stripeAnimation
-        loops: Animation.Infinite
+    // 条纹动画定时器
+    Timer {
+        interval: 16  // 保持60 FPS
+        repeat: true
         running: true
-        
-        NumberAnimation {
-            from: 0
-            to: 32
-            duration: 500
-            easing.type: Easing.Linear
+        onTriggered: {
+            stripeOffset = (stripeOffset + 1) % 32;
+            // 更新所有条纹画布
+            for (var i = 0; i < stripeCanvasRepeater.count; i++) {
+                var canvas = stripeCanvasRepeater.itemAt(i);
+                if (canvas) {
+                    // 使用 requestPaint 来触发重绘
+                    canvas.requestPaint();
+                }
+            }
         }
     }
     

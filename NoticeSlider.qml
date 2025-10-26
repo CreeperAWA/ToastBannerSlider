@@ -38,22 +38,22 @@ Item {
         repeat: false
         onTriggered: {
             // 通过Python端记录日志
-            bannerObject.logInfo("QML配置参数:");
-            bannerObject.logInfo("  maxScrolls: " + maxScrolls);
-            bannerObject.logInfo("  scrollSpeed: " + scrollSpeed);
-            bannerObject.logInfo("  rightSpacing: " + rightSpacing);
-            bannerObject.logInfo("  bannerSpacing: " + bannerSpacing);
-            bannerObject.logInfo("  bannerText: " + bannerText);
-            bannerObject.logInfo("  bannerOpacity: " + bannerOpacity);
-            bannerObject.logInfo("  scrollMode: " + scrollMode);
-            bannerObject.logInfo("  iconScale: " + iconScale);
-            bannerObject.logInfo("  leftMargin: " + leftMargin);
-            bannerObject.logInfo("  rightMargin: " + rightMargin);
-            bannerObject.logInfo("  labelMaskWidth: " + labelMaskWidth);
-            bannerObject.logInfo("  fontSize: " + fontSize);
-            bannerObject.logInfo("  labelOffsetX: " + labelOffsetX);
-            bannerObject.logInfo("  iconPath: " + iconPath);
-            bannerObject.logInfo("  fadeAnimationDuration: " + fadeAnimationDuration);
+            bannerObject.logDebug("QML配置参数:");
+            bannerObject.logDebug("  maxScrolls: " + maxScrolls);
+            bannerObject.logDebug("  scrollSpeed: " + scrollSpeed);
+            bannerObject.logDebug("  rightSpacing: " + rightSpacing);
+            bannerObject.logDebug("  bannerSpacing: " + bannerSpacing);
+            bannerObject.logDebug("  bannerText: " + bannerText);
+            bannerObject.logDebug("  bannerOpacity: " + bannerOpacity);
+            bannerObject.logDebug("  scrollMode: " + scrollMode);
+            bannerObject.logDebug("  iconScale: " + iconScale);
+            bannerObject.logDebug("  leftMargin: " + leftMargin);
+            bannerObject.logDebug("  rightMargin: " + rightMargin);
+            bannerObject.logDebug("  labelMaskWidth: " + labelMaskWidth);
+            bannerObject.logDebug("  fontSize: " + fontSize);
+            bannerObject.logDebug("  labelOffsetX: " + labelOffsetX);
+            bannerObject.logDebug("  iconPath: " + iconPath);
+            bannerObject.logDebug("  fadeAnimationDuration: " + fadeAnimationDuration);
             
             // 延迟启动文本动画
             startTextAnimationTimer.start();
