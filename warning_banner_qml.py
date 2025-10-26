@@ -5,7 +5,7 @@
 """
 
 from PySide6.QtWidgets import QWidget, QApplication, QVBoxLayout
-from PySide6.QtCore import Qt, Signal, QUrl, Property, QTimer, QObject, Slot, QPropertyAnimation, QPoint, QEasingCurve
+from PySide6.QtCore import Qt, Signal, QUrl, Property, QTimer, Slot, QPropertyAnimation, QPoint, QEasingCurve
 from PySide6.QtGui import QShowEvent, QMouseEvent, QSurfaceFormat
 from PySide6.QtQuickWidgets import QQuickWidget
 from config import load_config
@@ -157,7 +157,9 @@ class WarningBannerQML(QWidget):
         """启动淡出动画"""
         if self.quick_widget and self.quick_widget.rootObject():
             try:
-                self.quick_widget.rootObject().startFadeOut()
+                # 使用类型注释忽略Pylance错误
+                root_object = self.quick_widget.rootObject()
+                root_object.startFadeOut()  # type: ignore
             except Exception as e:
                 logger.error(f"QML fade out error: {e}")
                 self.handleFadeOutFinished()
@@ -171,7 +173,9 @@ class WarningBannerQML(QWidget):
         # 清理QML中的动画对象
         if self.quick_widget and self.quick_widget.rootObject():
             try:
-                self.quick_widget.rootObject().cleanup()
+                # 使用类型注释忽略Pylance错误
+                root_object = self.quick_widget.rootObject()
+                root_object.cleanup()  # type: ignore
             except Exception as e:
                 logger.error(f"QML cleanup error: {e}")
         

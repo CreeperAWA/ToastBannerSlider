@@ -10,6 +10,7 @@ import os
 from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 from PySide6.QtCore import QTimer, QObject, Qt
 from notice_slider import NotificationWindow
+from notice_slider_qml import NoticeSliderQML  # 导入默认样式横幅(QML版本)
 from warning_banner_cpu import WarningBanner as WarningBannerCPU  # 导入警告横幅(CPU版本)
 from warning_banner_gpu import WarningBanner as WarningBannerGPU  # 导入警告横幅(GPU版本)
 from warning_banner_qml import WarningBannerQML  # 导入警告横幅(QML版本)
@@ -233,7 +234,7 @@ class ToastBannerManager(QObject):
         self.config_path = get_config_path()
         
         # 初始化成员变量
-        self.notification_windows: List[Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU, WarningBannerQML]] = []
+        self.notification_windows: List[Union[NotificationWindow, NoticeSliderQML, WarningBannerCPU, WarningBannerGPU, WarningBannerQML]] = []
         self.last_notification: Optional[str] = None
         self.config_watcher: Optional[ConfigWatcher] = None
         self.config_timer: Optional[QTimer] = None
