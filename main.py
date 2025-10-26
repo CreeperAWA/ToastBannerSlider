@@ -112,7 +112,6 @@ if rendering_backend != "default":
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
 # 启用高性能渲染选项
-QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps)
 QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL)
 QApplication.setAttribute(Qt.ApplicationAttribute.AA_DontCreateNativeWidgetSiblings)  # 提升性能
 

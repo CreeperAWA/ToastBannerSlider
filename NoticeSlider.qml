@@ -37,21 +37,23 @@ Item {
         interval: 10
         repeat: false
         onTriggered: {
-            console.log("QML配置参数:");
-            console.log("  maxScrolls:", maxScrolls);
-            console.log("  scrollSpeed:", scrollSpeed);
-            console.log("  rightSpacing:", rightSpacing);
-            console.log("  bannerSpacing:", bannerSpacing);
-            console.log("  bannerText:", bannerText);
-            console.log("  bannerOpacity:", bannerOpacity);
-            console.log("  scrollMode:", scrollMode);
-            console.log("  iconScale:", iconScale);
-            console.log("  leftMargin:", leftMargin);
-            console.log("  rightMargin:", rightMargin);
-            console.log("  labelMaskWidth:", labelMaskWidth);
-            console.log("  fontSize:", fontSize);
-            console.log("  labelOffsetX:", labelOffsetX);
-            console.log("  iconPath:", iconPath);
+            // 通过Python端记录日志
+            bannerObject.logInfo("QML配置参数:");
+            bannerObject.logInfo("  maxScrolls: " + maxScrolls);
+            bannerObject.logInfo("  scrollSpeed: " + scrollSpeed);
+            bannerObject.logInfo("  rightSpacing: " + rightSpacing);
+            bannerObject.logInfo("  bannerSpacing: " + bannerSpacing);
+            bannerObject.logInfo("  bannerText: " + bannerText);
+            bannerObject.logInfo("  bannerOpacity: " + bannerOpacity);
+            bannerObject.logInfo("  scrollMode: " + scrollMode);
+            bannerObject.logInfo("  iconScale: " + iconScale);
+            bannerObject.logInfo("  leftMargin: " + leftMargin);
+            bannerObject.logInfo("  rightMargin: " + rightMargin);
+            bannerObject.logInfo("  labelMaskWidth: " + labelMaskWidth);
+            bannerObject.logInfo("  fontSize: " + fontSize);
+            bannerObject.logInfo("  labelOffsetX: " + labelOffsetX);
+            bannerObject.logInfo("  iconPath: " + iconPath);
+            bannerObject.logInfo("  fadeAnimationDuration: " + fadeAnimationDuration);
             
             // 延迟启动文本动画
             startTextAnimationTimer.start();
@@ -125,7 +127,6 @@ Item {
         }
     }
     
-    
     // 文本显示区域
     Item {
         id: textContainer
@@ -137,7 +138,8 @@ Item {
         
         Text {
             id: messageText
-            x: parent.width  // 初始位置在右侧
+            // 初始位置在右侧
+            x: textContainer.width
             y: (parent.height - paintedHeight) / 2
             text: bannerText ? bannerText : "默认文本"
             font.pixelSize: fontSize / 2
@@ -155,12 +157,13 @@ Item {
     
     // 文本滚动动画
     function startScrollingText() {
-        console.log("开始滚动文本，当前滚动次数:", scrollCount, "最大滚动次数:", maxScrolls);
-        console.log("滚动模式:", scrollMode);
+        // 通过Python端记录日志
+        bannerObject.logDebug("开始滚动文本，当前滚动次数: " + scrollCount + " 最大滚动次数: " + maxScrolls);
+        bannerObject.logDebug("滚动模式: " + scrollMode);
         
         // 根据滚动模式决定是否滚动
         if (scrollMode === "never") {
-            console.log("滚动模式为never，不滚动文本");
+            bannerObject.logDebug("滚动模式为never，不滚动文本");
             // 文本居中显示
             messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
             return;
@@ -168,7 +171,7 @@ Item {
         
         // 如果是auto模式，检查文本是否需要滚动
         if (scrollMode === "auto" && messageText.paintedWidth <= textContainer.width) {
-            console.log("滚动模式为auto且文本宽度小于窗口宽度，不滚动文本");
+            bannerObject.logDebug("滚动模式为auto且文本宽度小于窗口宽度，不滚动文本");
             // 文本居中显示
             messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
             return;
@@ -176,7 +179,7 @@ Item {
         
         // 如果已经达到了最大滚动次数，则通知关闭
         if (scrollCount >= maxScrolls && maxScrolls > 0) {
-            console.log("达到最大滚动次数，准备关闭横幅");
+            bannerObject.logDebug("达到最大滚动次数，准备关闭横幅");
             // 调用Python对象的方法
             bannerObject.close_banner_slot();
             return;
@@ -184,9 +187,8 @@ Item {
         
         // 增加滚动计数（在动画开始前增加）
         scrollCount++;
-        console.log("增加滚动计数，当前计数:", scrollCount);
+        bannerObject.logDebug("增加滚动计数，当前计数: " + scrollCount);
         
-        // 在这里计算，确保使用的是最新的 paintedWidth
         // 计算可用宽度（屏幕宽度减去左右边距和标签遮罩宽度）
         var availableWidth = parent.width - leftMargin - labelMaskWidth - rightMargin;
         
@@ -196,7 +198,7 @@ Item {
         // 计算滚动距离和持续时间
         var scrollDistance = availableWidth + messageText.paintedWidth + rightSpacing;
         var duration = Math.round((scrollDistance / scrollSpeed) * 1000);
-        console.log("动画参数 - 持续时间:", duration, "终点:", endX);
+        bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX);
         
         // 如果已经有动画在运行，停止它
         if (textAnimation != null) {
@@ -210,9 +212,9 @@ Item {
         textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + availableWidth + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
         
         textAnimation.finished.connect(function() {
-            console.log("文本动画完成，重新开始");
+            bannerObject.logDebug("文本动画完成，重新开始");
             // 当动画完成时，重新开始
-            messageText.x = textContainer.width;
+            messageText.x = availableWidth;
             startScrollingText();
         });
         
@@ -226,7 +228,7 @@ Item {
         to: 1.0
         duration: fadeAnimationDuration
         easing.type: Easing.InOutQuad
-        running: true  // 默认启动
+        running: true
     }
     
     // 淡出动画（默认不运行）
@@ -240,7 +242,7 @@ Item {
         easing.type: Easing.InOutQuad
         running: false
         onFinished: {
-            console.log("淡出动画完成");
+            bannerObject.logDebug("淡出动画完成");
             // 调用Python对象的方法
             bannerObject.handleFadeOutFinished();
         }
@@ -251,7 +253,7 @@ Item {
     }
     
     function startFadeOut() {
-        console.log("开始淡出动画");
+        bannerObject.logDebug("开始淡出动画");
         // 停止淡入动画（如果正在运行）
         if (fadeInAnimation.running) {
             fadeInAnimation.stop();

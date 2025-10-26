@@ -29,14 +29,15 @@ Item {
         interval: 10
         repeat: false
         onTriggered: {
-            console.log("QML配置参数:");
-            console.log("  maxScrolls:", maxScrolls);
-            console.log("  scrollSpeed:", scrollSpeed);
-            console.log("  rightSpacing:", rightSpacing);
-            console.log("  bannerSpacing:", bannerSpacing);
-            console.log("  bannerText:", bannerText);
-            console.log("  bannerOpacity:", bannerOpacity);
-            console.log("  scrollMode:", scrollMode);
+            // 通过Python端记录日志
+            bannerObject.logInfo("QML配置参数:");
+            bannerObject.logInfo("  maxScrolls: " + maxScrolls);
+            bannerObject.logInfo("  scrollSpeed: " + scrollSpeed);
+            bannerObject.logInfo("  rightSpacing: " + rightSpacing);
+            bannerObject.logInfo("  bannerSpacing: " + bannerSpacing);
+            bannerObject.logInfo("  bannerText: " + bannerText);
+            bannerObject.logInfo("  bannerOpacity: " + bannerOpacity);
+            bannerObject.logInfo("  scrollMode: " + scrollMode);
             
             // 延迟启动文本动画
             startTextAnimationTimer.start();
@@ -99,77 +100,84 @@ Item {
         model: 2  // 顶部和底部线条
         
         Rectangle {
-            id: separatorLine
-            height: 4
-            color: "#ccffde59"  // 带透明度的黄色
+            id: line
+            x: 0
+            y: (index === 0) ? 0 : parent.height - 1
             width: parent.width
-            y: (index === 0) ? 32 : parent.height - 32 - 4
-            // 启用抗锯齿和层渲染以提高性能
-            antialiasing: true
-            layer.enabled: true
-            layer.smooth: true
+            height: 1
+            color: "#ccffde59"  // 带透明度的黄色
+            opacity: 0.7
         }
     }
     
-    // 文本显示
-    Text {
-        id: messageText
-        x: parent.width  // 初始位置在右侧
-        y: (parent.height - paintedHeight) / 2
-        text: bannerText ? bannerText : "默认文本"
-        font.pixelSize: 48  // 增大字体大小从36到48
-        font.bold: true
-        color: "#FFDE59"
-        font.family: "Microsoft YaHei UI"
-        // 启用层渲染以提高滚动性能
-        layer.enabled: true
-        layer.smooth: true
-        // 启用抗锯齿
-        antialiasing: true
-        // 文本渲染优化
-        renderType: Text.QtRendering
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignVCenter
+    // 文本容器
+    Item {
+        id: textContainer
+        x: 93  // 左边距
+        y: 0
+        width: parent.width - 186  // 减去左右边距
+        height: parent.height
+        clip: true  // 启用裁剪，确保文字在区域内显示
+        
+        Text {
+            id: messageText
+            // 初始位置在右侧
+            x: root.width
+            y: (parent.height - paintedHeight) / 2
+            text: bannerText ? bannerText : "默认文本"
+            font.pixelSize: 24
+            font.bold: true
+            color: "#ffffff"
+            font.family: "Microsoft YaHei UI"
+            // 启用层渲染和抗锯齿以提高性能和显示质量
+            layer.enabled: true
+            layer.smooth: true
+            antialiasing: true
+            renderType: Text.NativeRendering
+            horizontalAlignment: Text.AlignLeft
+            verticalAlignment: Text.AlignVCenter
+        }
     }
     
-    // 条纹动画定时器
-    Timer {
-        interval: 16  // 保持60 FPS
-        repeat: true
+    // 条纹动画
+    SequentialAnimation on stripeOffset {
+        id: stripeAnimation
+        loops: Animation.Infinite
         running: true
-        onTriggered: {
-            stripeOffset = (stripeOffset + 1) % 32;
-            // 更新所有条纹画布
-            for (var i = 0; i < stripeCanvasRepeater.count; i++) {
-                var canvas = stripeCanvasRepeater.itemAt(i);
-                if (canvas) {
-                    // 使用 requestPaint 来触发重绘
-                    canvas.requestPaint();
-                }
-            }
+        
+        NumberAnimation {
+            from: 0
+            to: 32
+            duration: 500
+            easing.type: Easing.Linear
         }
     }
     
     // 文本滚动动画
     function startScrollingText() {
-        console.log("开始滚动文本，当前滚动次数:", scrollCount, "最大滚动次数:", maxScrolls);
-        console.log("滚动模式:", scrollMode);
+        // 通过Python端记录日志
+        bannerObject.logDebug("开始滚动文本，当前滚动次数: " + scrollCount + " 最大滚动次数: " + maxScrolls);
+        bannerObject.logDebug("滚动模式: " + scrollMode);
         
         // 根据滚动模式决定是否滚动
         if (scrollMode === "never") {
-            console.log("滚动模式为never，不滚动文本");
+            bannerObject.logDebug("滚动模式为never，不滚动文本");
+            // 文本居中显示
+            messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
             return;
         }
         
         // 如果是auto模式，检查文本是否需要滚动
-        if (scrollMode === "auto" && messageText.paintedWidth <= root.width) {
-            console.log("滚动模式为auto且文本宽度小于窗口宽度，不滚动文本");
+        if (scrollMode === "auto" && messageText.paintedWidth <= textContainer.width) {
+            bannerObject.logDebug("滚动模式为auto且文本宽度小于窗口宽度，不滚动文本");
+            // 文本居中显示
+            messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
             return;
         }
         
         // 如果已经达到了最大滚动次数，则通知关闭
         if (scrollCount >= maxScrolls && maxScrolls > 0) {
-            console.log("达到最大滚动次数，准备关闭横幅");
+            bannerObject.logDebug("达到最大滚动次数，准备关闭横幅");
             // 调用Python对象的方法
             bannerObject.close_banner_slot();
             return;
@@ -177,15 +185,15 @@ Item {
         
         // 增加滚动计数（在动画开始前增加）
         scrollCount++;
-        console.log("增加滚动计数，当前计数:", scrollCount);
+        bannerObject.logDebug("增加滚动计数，当前计数: " + scrollCount);
         
-        // 在这里计算，确保使用的是最新的 paintedWidth
-        // 计算滚动终点
-        var endX = -messageText.paintedWidth - rightSpacing;
+        // 计算滚动终点 - 文本完全通过容器并消失
+        var endX = -(messageText.paintedWidth + rightSpacing);
         
         // 设置动画持续时间 (基于速度 px/s)，并四舍五入为整数
-        var duration = Math.round(((root.width + messageText.paintedWidth + rightSpacing) / scrollSpeed) * 1000);
-        console.log("动画参数 - 持续时间:", duration, "终点:", endX);
+        var scrollDistance = root.width + messageText.paintedWidth + rightSpacing;
+        var duration = Math.round((scrollDistance / scrollSpeed) * 1000);
+        bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX);
         
         // 如果已经有动画在运行，停止它
         if (textAnimation != null) {
@@ -196,10 +204,10 @@ Item {
         }
         
         // 创建新的动画
-        textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
+        textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + root.width + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
         
         textAnimation.finished.connect(function() {
-            console.log("文本动画完成，重新开始");
+            bannerObject.logDebug("文本动画完成，重新开始");
             // 当动画完成时，重新开始
             messageText.x = root.width;
             startScrollingText();
@@ -229,7 +237,7 @@ Item {
         easing.type: Easing.InOutQuad
         running: false
         onFinished: {
-            console.log("淡出动画完成");
+            bannerObject.logDebug("淡出动画完成");
             // 调用Python对象的方法
             bannerObject.handleFadeOutFinished();
         }
@@ -240,7 +248,7 @@ Item {
     }
     
     function startFadeOut() {
-        console.log("开始淡出动画");
+        bannerObject.logDebug("开始淡出动画");
         // 停止淡入动画（如果正在运行）
         if (fadeInAnimation.running) {
             fadeInAnimation.stop();

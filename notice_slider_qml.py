@@ -13,6 +13,7 @@ from typing import Dict, Union, Optional
 from pathlib import Path
 import os
 import sys
+from loguru import logger
 
 
 class NoticeSliderQML(QWidget):
@@ -178,7 +179,7 @@ class NoticeSliderQML(QWidget):
         icon_path = self._get_icon_path()
         
         # 加载QML文件前设置上下文属性
-        print(f"设置QML上下文属性: maxScrolls={self.max_scrolls}, scrollSpeed={self.speed}, rightSpacing={self.space}, bannerText='{self._text}', bannerOpacity={self.banner_opacity}")
+        logger.debug(f"设置QML上下文属性: maxScrolls={self.max_scrolls}, scrollSpeed={self.speed}, rightSpacing={self.space}, bannerText='{self._text}', bannerOpacity={self.banner_opacity}")
         self.quick_widget.rootContext().setContextProperty("bannerText", self._text)
         self.quick_widget.rootContext().setContextProperty("bannerObject", self)
         self.quick_widget.rootContext().setContextProperty("maxScrolls", self.max_scrolls)
@@ -208,7 +209,7 @@ class NoticeSliderQML(QWidget):
         # 更新QML中的配置参数
         if self.quick_widget and self.quick_widget.rootObject():
             try:
-                print(f"更新QML属性: maxScrolls={self.max_scrolls}, scrollSpeed={self.speed}, rightSpacing={self.space}, bannerText='{self._text}', bannerOpacity={self.banner_opacity}")
+                logger.debug(f"更新QML属性: maxScrolls={self.max_scrolls}, scrollSpeed={self.speed}, rightSpacing={self.space}, bannerText='{self._text}', bannerOpacity={self.banner_opacity}")
                 self.quick_widget.rootObject().setProperty("bannerText", self._text)
                 self.quick_widget.rootObject().setProperty("maxScrolls", self.max_scrolls)
                 self.quick_widget.rootObject().setProperty("scrollSpeed", float(self.speed))
@@ -228,7 +229,7 @@ class NoticeSliderQML(QWidget):
                 icon_path = self._get_icon_path()
                 self.quick_widget.rootObject().setProperty("iconPath", icon_path)
             except Exception as e:
-                print(f"Failed to update QML properties: {e}")
+                logger.error(f"Failed to update QML properties: {e}")
         
     def close_banner(self) -> None:
         """关闭横幅"""
@@ -243,7 +244,7 @@ class NoticeSliderQML(QWidget):
             try:
                 self.quick_widget.rootObject().startFadeOut()
             except Exception as e:
-                print(f"QML fade out error: {e}")
+                logger.error(f"QML fade out error: {e}")
                 self.handleFadeOutFinished()
         else:
             self.handleFadeOutFinished()
@@ -257,7 +258,7 @@ class NoticeSliderQML(QWidget):
             try:
                 self.quick_widget.rootObject().cleanup()
             except Exception as e:
-                print(f"QML cleanup error: {e}")
+                logger.error(f"QML cleanup error: {e}")
         
         # 延迟销毁窗口以避免QML信号处理冲突
         QTimer.singleShot(100, self._safe_close)
@@ -284,7 +285,7 @@ class NoticeSliderQML(QWidget):
             try:
                 self.quick_widget.rootObject().setProperty("bannerText", text)
             except Exception as e:
-                print(f"Failed to update QML text: {e}")
+                logger.error(f"Failed to update QML text: {e}")
             
     # 定义属性
     text = Property(str, getText, setText)
@@ -319,3 +320,24 @@ class NoticeSliderQML(QWidget):
         self.vertical_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         if self.vertical_animation:
             self.vertical_animation.start()
+            
+    # 添加供QML调用的日志方法
+    @Slot(str)
+    def logDebug(self, message: str) -> None:
+        """供QML调用的调试日志方法"""
+        logger.debug(f"[QML] {message}")
+        
+    @Slot(str)
+    def logInfo(self, message: str) -> None:
+        """供QML调用的信息日志方法"""
+        logger.info(f"[QML] {message}")
+        
+    @Slot(str)
+    def logWarning(self, message: str) -> None:
+        """供QML调用的警告日志方法"""
+        logger.warning(f"[QML] {message}")
+        
+    @Slot(str)
+    def logError(self, message: str) -> None:
+        """供QML调用的错误日志方法"""
+        logger.error(f"[QML] {message}")
