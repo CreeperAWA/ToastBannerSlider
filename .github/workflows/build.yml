@@ -75,7 +75,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-amd64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-amd64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -139,7 +139,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-arm64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-arm64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -203,7 +203,7 @@ jobs:
           
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-x86.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem main.py
+          python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-x86.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
