@@ -95,6 +95,9 @@ class ConfigDialog(QDialog):
             # 此时所有UI组件都已创建
             self._on_rendering_backend_changed(self.rendering_backend_combo.currentIndex())
             
+            # 初始化后立即应用 Qt Quick 规则（处理初始化时的状态）
+            self._on_qt_quick_changed(self.enable_qt_quick_checkbox.checkState())
+            
             logger.debug("配置对话框初始化完成")
         except Exception as e:
             logger.error(f"初始化配置对话框时出错: {e}")
@@ -168,7 +171,7 @@ class ConfigDialog(QDialog):
             
             # 恢复默认按钮
             self.reset_button = QPushButton("恢复默认")
-            self.reset_button.clicked.connect(self._on_reset)
+            # 注意：不要在这里连接信号，因为会在_connect_signals中连接
             button_layout.addWidget(self.reset_button)
             
             # 添加伸展
@@ -176,9 +179,9 @@ class ConfigDialog(QDialog):
             
             # 确定和取消按钮
             self.ok_button = QPushButton("确定")
-            self.ok_button.clicked.connect(self._on_ok)
+            # 注意：不要在这里连接信号，因为会在_connect_signals中连接
             self.cancel_button = QPushButton("取消")
-            self.cancel_button.clicked.connect(self._on_cancel)
+            # 注意：不要在这里连接信号，因为会在_connect_signals中连接
             
             button_layout.addWidget(self.ok_button)
             button_layout.addWidget(self.cancel_button)
@@ -486,6 +489,11 @@ class ConfigDialog(QDialog):
             self.dnd_checkbox.setChecked(bool(self.config.get("do_not_disturb", False)))
             layout.addRow(self.dnd_checkbox)
             
+            # 启用 Qt Quick 选项
+            self.enable_qt_quick_checkbox = QCheckBox("启用 Qt Quick (QML 渲染)")
+            self.enable_qt_quick_checkbox.setChecked(bool(self.config.get("enable_qt_quick", False)))
+            layout.addRow(self.enable_qt_quick_checkbox)
+            
             # 渲染后端选项
             self.rendering_backend_combo = QComboBox()
             self.rendering_backend_combo.addItem("默认 (CPU渲染)", "default")
@@ -500,7 +508,16 @@ class ConfigDialog(QDialog):
                 default_index = self.rendering_backend_combo.findData("default")
                 if default_index >= 0:
                     self.rendering_backend_combo.setCurrentIndex(default_index)
-            layout.addRow("渲染后端:", self.rendering_backend_combo)
+            rendering_backend_label = QLabel("渲染后端:")
+            rendering_backend_label.setObjectName("rendering_backend_label")
+            layout.addRow(rendering_backend_label, self.rendering_backend_combo)
+            
+            # 连接 Qt Quick 选项变化信号
+            self.enable_qt_quick_checkbox.stateChanged.connect(self._on_qt_quick_state_changed)
+            
+            # 初始化 Qt Quick 状态
+            # 不再在这里调用_on_qt_quick_changed，而是在_update_ui_from_config中统一处理
+            # self._on_qt_quick_changed(self.enable_qt_quick_checkbox.checkState())
             
             return group
         except Exception as e:
@@ -590,6 +607,47 @@ class ConfigDialog(QDialog):
             logger.debug("配置对话框信号连接完成")
         except Exception as e:
             logger.error(f"连接配置对话框信号时出错: {e}")
+
+    def _on_qt_quick_changed(self, state: Qt.CheckState) -> None:
+        """当 Qt Quick 选项改变时，根据状态显示/隐藏渲染后端设置和透明度设置
+        
+        Args:
+            state: Qt Quick 复选框的状态
+        """
+        logger.debug(f"Qt Quick 选项改变，状态: {state}")
+        if state == Qt.CheckState.Checked:
+            # 启用 Qt Quick 时隐藏渲染后端设置，但显示透明度设置
+            self.rendering_backend_combo.hide()
+            # 查找渲染后端标签并隐藏它
+            label = self.rendering_backend_combo.parent().findChild(QLabel, "rendering_backend_label")
+            if label:
+                label.hide()
+            
+            # 显示透明度设置（QML渲染需要透明度设置）
+            self.banner_opacity_spinbox.show()
+            self.banner_opacity_label.show()
+            
+            logger.debug("隐藏渲染后端设置，显示透明度设置")
+        else:
+            # 禁用 Qt Quick 时显示渲染后端设置，透明度设置的显示由渲染后端决定
+            self.rendering_backend_combo.show()
+            # 查找渲染后端标签并显示它
+            label = self.rendering_backend_combo.parent().findChild(QLabel, "rendering_backend_label")
+            if label:
+                label.show()
+            
+            # 透明度设置的显示由渲染后端决定
+            self._on_rendering_backend_changed(self.rendering_backend_combo.currentIndex())
+            
+            logger.debug("显示渲染后端设置，透明度设置由渲染后端决定")
+
+    def _on_qt_quick_state_changed(self, state: int) -> None:
+        """Qt Quick 复选框状态改变处理函数
+        
+        Args:
+            state: Qt Quick 复选框的状态
+        """
+        self._on_qt_quick_changed(Qt.CheckState(state))
 
     def _update_gpu_options_enabled(self) -> None:
         """根据当前横幅样式更新GPU选项的启用/禁用状态"""
@@ -734,6 +792,7 @@ class ConfigDialog(QDialog):
                 "scroll_mode": self.scroll_mode_combo.currentData(),
                 "ignore_duplicate": self.ignore_duplicate_checkbox.isChecked(),
                 "do_not_disturb": self.dnd_checkbox.isChecked(),
+                "enable_qt_quick": self.enable_qt_quick_checkbox.isChecked(),  # 添加 Qt Quick 选项配置项
                 "rendering_backend": self.rendering_backend_combo.currentData(),
                 "custom_icon": self.icon_edit.text().strip() if self.icon_edit.text().strip() else None
             }
@@ -804,61 +863,123 @@ class ConfigDialog(QDialog):
             logger.debug("处理恢复默认事件")
             
             # 弹出确认对话框
-            reply = QMessageBox.question(
-                self, 
-                "确认", 
-                "确定要恢复所有设置为默认值吗？", 
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("确认")
+            msg_box.setText("确定要恢复所有设置为默认值吗？")
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+            
+            # 设置按钮文本为中文
+            yes_button = msg_box.button(QMessageBox.StandardButton.Yes)
+            if yes_button:
+                yes_button.setText("是")
+            
+            no_button = msg_box.button(QMessageBox.StandardButton.No)
+            if no_button:
+                no_button.setText("否")
+            
+            reply = msg_box.exec()
+            logger.debug(f"用户选择: {reply}")
             
             if reply == QMessageBox.StandardButton.Yes:
-                # 重置渲染后端到默认值
-                default_backend_index = self.rendering_backend_combo.findData("default")
-                if default_backend_index >= 0:
-                    self.rendering_backend_combo.setCurrentIndex(default_backend_index)
+                logger.debug("用户确认恢复默认设置")
                 
-                # 重置样式到默认值
-                default_style_index = self.banner_style_combo.findData("default")
-                if default_style_index >= 0:
-                    self.banner_style_combo.setCurrentIndex(default_style_index)
-
-                # 更新界面控件 (包括透明度，此时应可见)
-                self.title_edit.setText(str(DEFAULT_CONFIG.get("notification_title", "911 呼唤群")))
-                self.speed_spinbox.setValue(float(DEFAULT_CONFIG.get("scroll_speed", 200.0) or 200.0))
-                self.scroll_count_spinbox.setValue(int(DEFAULT_CONFIG.get("scroll_count", 3) or 3))
-                self.click_close_spinbox.setValue(int(DEFAULT_CONFIG.get("click_to_close", 3) or 3))
-                self.spacing_spinbox.setValue(int(DEFAULT_CONFIG.get("right_spacing", 150) or 150))
-                self.font_size_spinbox.setValue(float(DEFAULT_CONFIG.get("font_size", 48.0) or 48.0))
-                self.left_margin_spinbox.setValue(int(DEFAULT_CONFIG.get("left_margin", 93) or 93))
-                self.right_margin_spinbox.setValue(int(DEFAULT_CONFIG.get("right_margin", 93) or 93))
-                self.icon_scale_spinbox.setValue(float(DEFAULT_CONFIG.get("icon_scale", 1.0) or 1.0))
-                self.label_offset_x_spinbox.setValue(int(DEFAULT_CONFIG.get("label_offset_x", 0) or 0))
-                self.window_height_spinbox.setValue(int(DEFAULT_CONFIG.get("window_height", 128) or 128))
-                self.label_mask_width_spinbox.setValue(int(DEFAULT_CONFIG.get("label_mask_width", 305) or 305))
-                self.banner_spacing_spinbox.setValue(int(DEFAULT_CONFIG.get("banner_spacing", 10) or 10))
-                self.shift_duration_spinbox.setValue(int(DEFAULT_CONFIG.get("shift_animation_duration", 100) or 100))
-                self.fade_duration_spinbox.setValue(int(DEFAULT_CONFIG.get("fade_animation_duration", 1500) or 1500))
-                self.base_vertical_offset_spinbox.setValue(int(DEFAULT_CONFIG.get("base_vertical_offset", 50) or 50))
-                # 更新横幅透明度的重置逻辑
-                self.banner_opacity_spinbox.setValue(float(DEFAULT_CONFIG.get("banner_opacity", 0.9) or 0.9))
-                self.banner_opacity_spinbox.show() # 确保重置后透明度控件是可见的
-                self.banner_opacity_label.show()
+                # 临时保存当前图标设置，因为图标文件需要特殊处理
+                current_icon = self.config.get("custom_icon")
                 
-                # 滚动模式
-                index = self.scroll_mode_combo.findData(DEFAULT_CONFIG.get("scroll_mode", "always"))
-                if index >= 0:
-                    self.scroll_mode_combo.setCurrentIndex(index)
-                    
-                # 日志等级
-                index = self.log_level_combo.findData(DEFAULT_CONFIG.get("log_level", "INFO"))
-                if index >= 0:
-                    self.log_level_combo.setCurrentIndex(index)
-                    
-                # 复选框
-                self.ignore_duplicate_checkbox.setChecked(bool(DEFAULT_CONFIG.get("ignore_duplicate", False)))
-                self.dnd_checkbox.setChecked(bool(DEFAULT_CONFIG.get("do_not_disturb", False)))
+                # 恢复默认配置
+                self.config = DEFAULT_CONFIG.copy()
+                
+                # 保留当前图标设置
+                if current_icon:
+                    self.config["custom_icon"] = current_icon
+                
+                # 更新UI控件
+                self._update_ui_from_config()
+                
+                logger.debug("默认设置已恢复")
+            else:
+                logger.debug("用户取消恢复默认设置")
         except Exception as e:
             logger.error(f"处理恢复默认事件时出错: {e}")
+            QMessageBox.critical(self, "错误", f"恢复默认设置时出错: {e}")
+            
+    def _update_ui_from_config(self) -> None:
+        """根据当前配置更新UI控件"""
+        try:
+            logger.debug("根据配置更新UI控件")
+            
+            # 基本设置
+            self.title_edit.setText(str(self.config.get("notification_title", "911 呼唤群")))
+            self.speed_spinbox.setValue(float(self.config.get("scroll_speed", 200.0) or 200.0))
+            self.scroll_count_spinbox.setValue(int(self.config.get("scroll_count", 3) or 3))
+            self.click_close_spinbox.setValue(int(self.config.get("click_to_close", 3) or 3))
+            
+            # 显示设置
+            current_style = self.config.get("banner_style", "default")
+            style_index = self.banner_style_combo.findData(current_style)
+            if style_index >= 0:
+                self.banner_style_combo.setCurrentIndex(style_index)
+            
+            self.spacing_spinbox.setValue(int(self.config.get("right_spacing", 150) or 150))
+            self.font_size_spinbox.setValue(float(self.config.get("font_size", 48.0) or 48.0))
+            self.left_margin_spinbox.setValue(int(self.config.get("left_margin", 93) or 93))
+            self.right_margin_spinbox.setValue(int(self.config.get("right_margin", 93) or 93))
+            self.icon_scale_spinbox.setValue(float(self.config.get("icon_scale", 1.0) or 1.0))
+            self.label_offset_x_spinbox.setValue(int(self.config.get("label_offset_x", 0) or 0))
+            self.window_height_spinbox.setValue(int(self.config.get("window_height", 128) or 128))
+            self.label_mask_width_spinbox.setValue(int(self.config.get("label_mask_width", 305) or 305))
+            self.banner_spacing_spinbox.setValue(int(self.config.get("banner_spacing", 10) or 10))
+            self.base_vertical_offset_spinbox.setValue(int(self.config.get("base_vertical_offset", 50) or 50))
+            self.banner_opacity_spinbox.setValue(float(self.config.get("banner_opacity", 0.9) or 0.9))
+            
+            current_mode = self.config.get("scroll_mode", "always")
+            mode_index = self.scroll_mode_combo.findData(current_mode)
+            if mode_index >= 0:
+                self.scroll_mode_combo.setCurrentIndex(mode_index)
+            
+            # 动画设置
+            self.shift_duration_spinbox.setValue(int(self.config.get("shift_animation_duration", 100) or 100))
+            self.fade_duration_spinbox.setValue(int(self.config.get("fade_animation_duration", 1500) or 1500))
+            
+            # 高级设置
+            current_level = self.config.get("log_level", "INFO")
+            level_index = self.log_level_combo.findData(current_level)
+            if level_index >= 0:
+                self.log_level_combo.setCurrentIndex(level_index)
+                
+            self.ignore_duplicate_checkbox.setChecked(bool(self.config.get("ignore_duplicate", False)))
+            self.dnd_checkbox.setChecked(bool(self.config.get("do_not_disturb", False)))
+            qt_quick_enabled = bool(self.config.get("enable_qt_quick", False))
+            self.enable_qt_quick_checkbox.setChecked(qt_quick_enabled)  # 添加 Qt Quick 选项
+            
+            current_backend = self.config.get("rendering_backend", "default")
+            backend_index = self.rendering_backend_combo.findData(current_backend)
+            if backend_index >= 0:
+                self.rendering_backend_combo.setCurrentIndex(backend_index)
+            else:
+                # 如果找不到对应的数据，设置为默认值
+                default_index = self.rendering_backend_combo.findData("default")
+                if default_index >= 0:
+                    self.rendering_backend_combo.setCurrentIndex(default_index)
+                    
+            # 将Qt Quick的状态更新移到最后，确保所有依赖于此的UI都已更新
+            self._on_qt_quick_changed(self.enable_qt_quick_checkbox.checkState())
+            
+            # 图标设置
+            current_icon = self.config.get("custom_icon")
+            if current_icon:
+                self.icon_edit.setText(str(current_icon))
+            else:
+                self.icon_edit.clear()
+                
+            # 更新图标预览
+            self._update_icon_preview()
+            
+            logger.debug("UI控件更新完成")
+        except Exception as e:
+            logger.error(f"根据配置更新UI控件时出错: {e}")
             
     def _on_icon_changed(self, text: str) -> None:
         """处理图标文本变化事件

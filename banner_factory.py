@@ -7,10 +7,11 @@ from typing import Union, Dict, Optional
 from notice_slider import NotificationWindow
 from warning_banner_cpu import WarningBanner as WarningBannerCPU
 from warning_banner_gpu import WarningBanner as WarningBannerGPU
+from warning_banner_qml import WarningBannerQML  # 引入QML版本
 from config import load_config
 
 
-def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Optional[int] = None) -> Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU]:
+def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Optional[int] = None) -> Union[NotificationWindow, WarningBannerCPU, WarningBannerGPU, WarningBannerQML]:
     """根据配置创建横幅实例
     
     Args:
@@ -32,19 +33,27 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
     if banner_style == "warning":
         processed_message = " ".join(message.splitlines())
     
+    # 检查是否启用 Qt Quick (QML 渲染)
+    enable_qt_quick = config.get("enable_qt_quick", False)
+    
     # 根据样式创建对应的横幅实例
     if banner_style == "warning":
-        # 获取渲染后端配置
-        rendering_backend: str = str(config.get("rendering_backend", "default"))
-        
-        # 根据渲染后端选择对应的WarningBanner版本
-        if rendering_backend in ["opengl", "opengles"]:
-            # 使用GPU渲染版本
-            banner = WarningBannerGPU(text=processed_message, y_offset=vertical_offset)
+        # 如果启用了 Qt Quick，则使用 QML 版本
+        if enable_qt_quick:
+            banner = WarningBannerQML(text=processed_message, y_offset=vertical_offset)
+            return banner
         else:
-            # 使用CPU渲染版本
-            banner = WarningBannerCPU(text=processed_message, y_offset=vertical_offset)
-        return banner
+            # 获取渲染后端配置
+            rendering_backend: str = str(config.get("rendering_backend", "default"))
+            
+            # 根据渲染后端选择对应的WarningBanner版本
+            if rendering_backend in ["opengl", "opengles"]:
+                # 使用GPU渲染版本
+                banner = WarningBannerGPU(text=processed_message, y_offset=vertical_offset)
+            else:
+                # 使用CPU渲染版本
+                banner = WarningBannerCPU(text=processed_message, y_offset=vertical_offset)
+            return banner
     else:
         # 创建默认样式横幅
         banner = NotificationWindow(message=processed_message, vertical_offset=vertical_offset, max_scrolls=max_scrolls)

@@ -35,6 +35,7 @@ DEFAULT_CONFIG: Dict[str, Union[str, float, int, bool, None]] = {
     "do_not_disturb": False,         # 免打扰模式
     "custom_icon": None,             # 自定义图标文件名
     "banner_style": "default",       # 横幅样式: default(默认), warning(警告)
+    "enable_qt_quick": False,        # 启用 Qt Quick (QML 渲染)
     "rendering_backend": "default"   # 渲染后端: default(默认), opengl(OpenGL), opengles(OpenGL ES), vulkan(Vulkan), direct3d(Direct3D)
 }
 
@@ -107,7 +108,3 @@ def save_config(config: Dict[str, Union[str, float, int, bool, None]]) -> bool:
         return True
     except Exception:
         return False
-
-
-# 导出默认配置供其他模块使用
-__all__ = ['DEFAULT_CONFIG', 'load_config', 'save_config', 'get_config_path']
