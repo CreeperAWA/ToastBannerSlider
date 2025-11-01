@@ -256,10 +256,15 @@ class WarningBanner(QWidget):
         self.text_width = fm.horizontalAdvance(self.text)
         self.text_height = fm.height()  # 新增：获取文字高度
         
+        # 确保最小宽度为屏幕宽度，以便长文本可以完全滚动
+        screen_width = QApplication.primaryScreen().geometry().width()
+        calculated_width = max(self.text_width, screen_width)
+        
         if self.scene:
             # 创建文本代理并添加到场景
             self.text_proxy = QGraphicsProxyWidget()
             self.text_proxy.setWidget(self.message_text)
+            self.message_text.setGeometry(0, 0, calculated_width, self.text_height)  # 设置文本标签的尺寸
             self.scene.addItem(self.text_proxy)
 
     def _setup_animations(self) -> None:

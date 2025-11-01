@@ -115,16 +115,16 @@ Item {
     // 文本容器
     Item {
         id: textContainer
-        x: 93  // 左边距
+        x: 0  // 移除左边距
         y: 0
-        width: parent.width - 186  // 减去左右边距
+        width: parent.width
         height: parent.height
         clip: true  // 启用裁剪，确保文字在区域内显示
         
         Text {
             id: messageText
             // 初始位置在右侧
-            x: root.width
+            x: textContainer.width
             y: (parent.height - paintedHeight) / 2
             text: bannerText ? bannerText : "默认文本"
             font.pixelSize: 48  // 增大字体大小从24到48
