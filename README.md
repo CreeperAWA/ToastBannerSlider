@@ -160,6 +160,41 @@ ToastBannerSlider 使用基于硬件绑定的许可证系统来验证软件的�
    - 基于硬件信息进行许可证绑定
    - 支持自定义公钥文件验证
 
+10. **横幅工厂** ([banner_factory.py](./banner_factory.py)):
+    - 根据配置创建不同样式的横幅
+    - 支持多种渲染方式（CPU/GPU/QML）
+
+11. **关键字替换处理器** ([keyword_replacer.py](./keyword_replacer.py)):
+    - 处理通知消息中的关键字替换
+    - 支持正则表达式匹配和字体样式修改
+
+12. **日志配置** ([logger_config.py](./logger_config.py)):
+    - 统一管理应用程序的日志配置
+    - 提供不同级别的日志输出
+
+13. **QML通知横幅** ([notice_slider_qml.py](./notice_slider_qml.py)):
+    - 默认样式横幅的QML实现版本
+    - 提供更流畅的动画效果
+
+14. **QML警告横幅** ([warning_banner_qml.py](./warning_banner_qml.py)):
+    - 警告样式横幅的QML实现版本
+    - 用于显示重要警告信息
+
+15. **CPU渲染警告横幅** ([warning_banner_cpu.py](./warning_banner_cpu.py)):
+    - 警告样式横幅的CPU渲染版本
+
+16. **GPU渲染警告横幅** ([warning_banner_gpu.py](./warning_banner_gpu.py)):
+    - 警告样式横幅的GPU渲染版本
+
+17. **配置对话框逻辑** ([config_dialog_logic.py](./config_dialog_logic.py)):
+    - 处理配置对话框的核心业务逻辑
+
+18. **关键字规则对话框** ([keyword_rule_dialog.py](./keyword_rule_dialog.py)):
+    - 提供关键字规则编辑界面
+
+19. **图标提供者** ([icon_provider.py](./icon_provider.py)):
+    - 为QML界面提供图标资源加载功能
+
 ### 工作流程
 
 1. 程序启动时创建系统托盘图标和通知监听线程
