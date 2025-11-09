@@ -61,28 +61,6 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Fix QML directory case sensitivity
-        run: |
-          $pysidePath = (python -c "import PySide6; print(PySide6.__path__[0])").Trim()
-          $qmlDir = Join-Path $pysidePath "QML"
-          
-          # 检查实际存在的目录名（处理大小写问题）
-          $actualQmlDir = Get-ChildItem -Path $pysidePath -Filter "qml" -Recurse -Directory | 
-                          Select-Object -First 1 -ExpandProperty FullName
-          
-          if (-not $actualQmlDir) {
-            Write-Host "##[error]QML directory not found in $pysidePath"
-            exit 1
-          }
-          
-          # 创建符号链接解决大小写问题（Windows 10+需要管理员权限）
-          if (Test-Path $qmlDir) { Remove-Item $qmlDir -Recurse -Force }
-          cmd /c mklink /J "$qmlDir" "$actualQmlDir"
-          
-          Write-Host "Created junction: $qmlDir -> $actualQmlDir"
-          dir $pysidePath
-        shell: powershell
-
       - name: Set version environment variable
         run: |
           if ("${{ github.event_name }}" -eq "release") {
@@ -98,7 +76,7 @@ jobs:
       - name: Build executable with Nuitka
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-amd64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
-
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -147,28 +125,6 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Fix QML directory case sensitivity
-        run: |
-          $pysidePath = (python -c "import PySide6; print(PySide6.__path__[0])").Trim()
-          $qmlDir = Join-Path $pysidePath "QML"
-          
-          # 检查实际存在的目录名（处理大小写问题）
-          $actualQmlDir = Get-ChildItem -Path $pysidePath -Filter "qml" -Recurse -Directory | 
-                          Select-Object -First 1 -ExpandProperty FullName
-          
-          if (-not $actualQmlDir) {
-            Write-Host "##[error]QML directory not found in $pysidePath"
-            exit 1
-          }
-          
-          # 创建符号链接解决大小写问题（Windows 10+需要管理员权限）
-          if (Test-Path $qmlDir) { Remove-Item $qmlDir -Recurse -Force }
-          cmd /c mklink /J "$qmlDir" "$actualQmlDir"
-          
-          Write-Host "Created junction: $qmlDir -> $actualQmlDir"
-          dir $pysidePath
-        shell: powershell
-
       - name: Set version environment variable
         run: |
           if ("${{ github.event_name }}" -eq "release") {
@@ -184,7 +140,7 @@ jobs:
       - name: Build executable with Nuitka
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-arm64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
-
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -233,28 +189,6 @@ jobs:
           restore-keys: |
             nuitka-cache-${{ runner.os }}-
           
-      - name: Fix QML directory case sensitivity
-        run: |
-          $pysidePath = (python -c "import PySide6; print(PySide6.__path__[0])").Trim()
-          $qmlDir = Join-Path $pysidePath "QML"
-          
-          # 检查实际存在的目录名（处理大小写问题）
-          $actualQmlDir = Get-ChildItem -Path $pysidePath -Filter "qml" -Recurse -Directory | 
-                          Select-Object -First 1 -ExpandProperty FullName
-          
-          if (-not $actualQmlDir) {
-            Write-Host "##[error]QML directory not found in $pysidePath"
-            exit 1
-          }
-          
-          # 创建符号链接解决大小写问题（Windows 10+需要管理员权限）
-          if (Test-Path $qmlDir) { Remove-Item $qmlDir -Recurse -Force }
-          cmd /c mklink /J "$qmlDir" "$actualQmlDir"
-          
-          Write-Host "Created junction: $qmlDir -> $actualQmlDir"
-          dir $pysidePath
-        shell: powershell
-
       - name: Set version environment variable
         run: |
           if ("${{ github.event_name }}" -eq "release") {
@@ -270,7 +204,7 @@ jobs:
       - name: Build executable with Nuitka
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-x86.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
-
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
