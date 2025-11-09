@@ -10,6 +10,7 @@ from warning_banner_cpu import WarningBanner as WarningBannerCPU
 from warning_banner_gpu import WarningBanner as WarningBannerGPU
 from warning_banner_qml import WarningBannerQML  # 引入QML版本
 from config import load_config
+from keyword_replacer import process_text_with_html  # 添加导入
 
 
 def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Optional[int] = None) -> Union[NotificationWindow, NoticeSliderQML, WarningBannerCPU, WarningBannerGPU, WarningBannerQML]:
@@ -33,6 +34,13 @@ def create_banner(message: str = "", vertical_offset: int = 0, max_scrolls: Opti
     processed_message = message
     if banner_style == "warning":
         processed_message = " ".join(message.splitlines())
+    
+    # 对于QML版本的横幅，处理HTML格式文本
+    if config.get("enable_qt_quick", False):
+        processed_message = process_text_with_html(processed_message)
+    else:
+        # 对于非QML版本，也处理HTML格式文本
+        processed_message = process_text_with_html(processed_message)
     
     # 检查是否启用 Qt Quick (QML 渲染)
     enable_qt_quick = config.get("enable_qt_quick", False)

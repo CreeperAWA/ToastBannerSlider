@@ -12,6 +12,7 @@ from config import load_config
 from typing import Dict, Union, Optional
 from pathlib import Path
 from loguru import logger
+from keyword_replacer import process_text_with_html
 
 
 class WarningBannerQML(QWidget):
@@ -36,7 +37,9 @@ class WarningBannerQML(QWidget):
         )
         
         # 消息文本
-        self._text: str = text if text else ""
+        # 处理文本中的关键字替换并生成HTML格式
+        processed_text = process_text_with_html(text) if text else ""
+        self._text: str = processed_text if processed_text else ""
         self.text_y_offset: int = y_offset
         
         # 加载配置
@@ -198,11 +201,13 @@ class WarningBannerQML(QWidget):
         
     def setText(self, text: str) -> None:
         """设置横幅文本"""
-        self._text = text
+        # 处理文本中的关键字替换并生成HTML格式
+        processed_text = process_text_with_html(text)
+        self._text = processed_text
         # 更新QML中的文本
         if self.quick_widget and self.quick_widget.rootObject():
             try:
-                self.quick_widget.rootObject().setProperty("bannerText", text)
+                self.quick_widget.rootObject().setProperty("bannerText", processed_text)
             except Exception as e:
                 logger.error(f"Failed to update QML text: {e}")
             

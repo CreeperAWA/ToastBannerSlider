@@ -128,9 +128,9 @@ Item {
             y: (parent.height - paintedHeight) / 2
             text: bannerText ? bannerText : "默认文本"
             font.pixelSize: 48  // 增大字体大小从24到48
-            font.bold: true
-            color: "#FFDE59"
-            font.family: "Microsoft YaHei UI"
+            font.bold: true     // 添加粗体以匹配CPU/GPU版本
+            // 移除font.family设置，避免覆盖HTML中的字体样式
+            color: "#FFDE59"    // 设置默认文本颜色为黄色
             // 启用层渲染和抗锯齿以提高性能和显示质量
             layer.enabled: true
             layer.smooth: true
@@ -139,7 +139,7 @@ Item {
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
             // 添加文本渲染优化属性，解决长文本截断问题
-            textFormat: Text.PlainText
+            textFormat: Text.RichText  // 支持HTML格式文本
             elide: Text.ElideNone
             wrapMode: Text.NoWrap
         }
@@ -209,10 +209,10 @@ Item {
         var endX = -(messageText.paintedWidth + rightSpacing);
         
         // 设置动画持续时间 (基于速度 px/s)，并四舍五入为整数
-        // 修复计算方式，使用textContainer.width而不是root.width
-        var scrollDistance = textContainer.width + messageText.paintedWidth + rightSpacing;
+        // 使用更精确的滚动距离计算，确保文本完全滚动
+        var scrollDistance = messageText.paintedWidth + textContainer.width + rightSpacing;
         var duration = Math.round((scrollDistance / scrollSpeed) * 1000);
-        bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX);
+        bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX + " 距离: " + scrollDistance);
         
         // 如果已经有动画在运行，停止它
         if (textAnimation != null) {
@@ -223,13 +223,12 @@ Item {
         }
         
         // 创建新的动画
-        // 修复动画起始位置，使用textContainer.width而不是root.width
+        // 确保动画从正确的位置开始
         textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + textContainer.width + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
         
         textAnimation.finished.connect(function() {
             bannerObject.logDebug("文本动画完成，重新开始");
-            // 当动画完成时，重新开始
-            // 修复重新开始位置，使用textContainer.width而不是root.width
+            // 当动画完成时，立即重新开始，消除停顿
             messageText.x = textContainer.width;
             startScrollingText();
         });
@@ -295,6 +294,23 @@ Item {
         interval: 100
         repeat: false
         onTriggered: {
+            // 在开始滚动前，确保文本正确处理
+            // 检查文本是否已经包含HTML标签（由关键字替换功能生成）
+            if (bannerText.indexOf("<span style=") !== -1 && bannerText.indexOf("</span>") !== -1) {
+                // 如果文本包含样式span标签，说明已经过关键字替换处理，直接使用
+                messageText.text = bannerText;
+            } else if (bannerText.indexOf("<") !== -1 || bannerText.indexOf(">") !== -1) {
+                // 如果包含其他HTML标签，直接使用
+                messageText.text = bannerText;
+            } else {
+                // 对于纯文本，进行HTML转义并应用默认样式
+                var escapedText = bannerText.replace(/&/g, "&amp;")
+                                           .replace(/</g, "&lt;")
+                                           .replace(/>/g, "&gt;")
+                                           .replace(/"/g, "&quot;")
+                                           .replace(/'/g, "&#039;");
+                messageText.text = escapedText;
+            }
             startScrollingText();
         }
     }

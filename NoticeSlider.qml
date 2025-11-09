@@ -145,13 +145,15 @@ Item {
             font.pixelSize: fontSize / 2
             font.bold: true
             color: "#ffffff"
-            font.family: "Microsoft YaHei UI"
             layer.enabled: true
             layer.smooth: true
             antialiasing: true
             renderType: Text.NativeRendering
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
+            textFormat: Text.RichText  // 支持HTML富文本格式
+            elide: Text.ElideNone     // 不省略文本
+            wrapMode: Text.NoWrap     // 不换行
         }
     }
     

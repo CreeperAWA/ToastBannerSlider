@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QTimer, Signal, QPoint, QPropertyAnimation, QEasi
 from PySide6.QtGui import QFont, QPainter, QColor, QPen, QPixmap, QMouseEvent, QPolygon, QPaintEvent, QShowEvent
 from config import load_config
 from typing import Dict, Union, Optional
+from keyword_replacer import process_text_with_html  # 确保导入process_text_with_html
 
 
 class WarningBanner(QWidget):
@@ -29,8 +30,9 @@ class WarningBanner(QWidget):
             Qt.WindowType.Tool
         )
 
-        # 消息文本
-        self.text: str = text if text else ""
+        # 消息文本 - 处理文本中的关键字替换并生成HTML格式
+        processed_text = process_text_with_html(text) if text else ""
+        self.text: str = processed_text if processed_text else ""
         self.text_y_offset: int = y_offset
         
         # 加载配置
@@ -72,6 +74,7 @@ class WarningBanner(QWidget):
         self.max_scrolls: int = int(self.config.get("scroll_count", 3) or 3)
         self.speed: float = float(self.config.get("scroll_speed", 200.0) or 200.0)  # 滚动速度 (px/s)
         self.space: int = int(self.config.get("right_spacing", 150) or 150)  # 右侧间隔距离
+        self.scroll_mode: str = str(self.config.get("scroll_mode", "always") or "always")  # 滚动模式
         
         # 垂直动画
         self.vertical_animation: Optional[QPropertyAnimation] = None
@@ -86,66 +89,6 @@ class WarningBanner(QWidget):
         # 添加关闭状态标志，防止重复关闭
         self._is_closing: bool = False
         
-    def _set_initial_position(self) -> None:
-        """设置初始位置和大小"""
-        # 获取屏幕信息
-        primary_screen = QApplication.primaryScreen()
-        screen_geometry = primary_screen.geometry()
-        screen_width = screen_geometry.width()
-        
-        # 获取基础垂直偏移量
-        base_vertical_offset = int(self.config.get("base_vertical_offset", 0) or 0)
-        total_offset = base_vertical_offset + self.text_y_offset
-        
-        # 设置窗口位置和大小
-        self.setGeometry(0, total_offset, screen_width, 140)
-        
-    def _create_message_text(self) -> None:
-        """创建消息文本标签"""
-        # 创建消息文本
-        self.message_text = QLabel(self.text, self)
-        self.message_text.setFont(QFont(["HarmonyOS Sans SC", "Microsoft YaHei UI", "sans-serif"], pointSize=36, weight=QFont.Weight.Bold))
-        self.message_text.setStyleSheet("color: #FFDE59; background: transparent;")
-        self.message_text.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.message_text.setWordWrap(False)
-        
-        # 设置文本标签的位置和尺寸
-        if self.message_text:
-            # 动态计算文本宽度
-            fm = self.message_text.fontMetrics()
-            self.text_width = fm.horizontalAdvance(self.text)
-            # 确保最小宽度为屏幕宽度，以便长文本可以完全滚动
-            screen_width = QApplication.primaryScreen().geometry().width()
-            calculated_width = max(self.text_width, screen_width)
-            
-            self.message_text.setGeometry(0, 0, calculated_width, 140)
-            # 初始位置在右侧不可见
-            self.message_text.move(screen_width, 0)
-            self.message_text.hide()  # 隐藏消息文本，防止旧内容闪现
-
-    def update_vertical_offset(self, new_offset: int) -> None:
-        """更新垂直偏移量
-        
-        Args:
-            new_offset (int): 新的垂直偏移量
-        """
-        # 获取基础垂直偏移量
-        base_vertical_offset = int(self.config.get("base_vertical_offset", 0) or 0)
-        total_offset = base_vertical_offset + new_offset
-        
-        # 创建垂直位置动画
-        if self.vertical_animation:
-            self.vertical_animation.stop()
-            self.vertical_animation.deleteLater()
-            
-        self.vertical_animation = QPropertyAnimation(self, b"pos")
-        self.vertical_animation.setDuration(int(self.config.get("shift_animation_duration", 100) or 100))  # 使用配置的动画时间
-        self.vertical_animation.setStartValue(self.pos())
-        self.vertical_animation.setEndValue(QPoint(0, total_offset))
-        self.vertical_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        if self.vertical_animation:
-            self.vertical_animation.start()
-        
     def _setup_animations(self) -> None:
         """设置动画"""
         # 条纹滚动定时器
@@ -156,18 +99,28 @@ class WarningBanner(QWidget):
         
         # 文本滚动动画
         if self.message_text:
-            # 计算滚动距离和持续时间
-            screen_width = QApplication.primaryScreen().geometry().width()
-            scroll_distance = self.text_width + screen_width + self.space
-            scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
-            
-            self.text_animation = QPropertyAnimation(self.message_text, b"pos")
-            self.text_animation.setDuration(int(scroll_duration))
-            self.text_animation.setStartValue(QPoint(screen_width, 0))
-            self.text_animation.setEndValue(QPoint(-(self.text_width + self.space), 0))
-            self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
-            if self.text_animation:
-                self.text_animation.finished.connect(self._on_text_animation_finished)
+            # 根据滚动模式决定是否滚动
+            if self.scroll_mode == "never":
+                # 文本居中显示
+                screen_width = QApplication.primaryScreen().geometry().width()
+                self.message_text.move((screen_width - self.text_width) // 2, (self.height() - self.text_height) // 2)
+            elif self.scroll_mode == "auto" and self.text_width <= QApplication.primaryScreen().geometry().width():
+                # 文本居中显示
+                screen_width = QApplication.primaryScreen().geometry().width()
+                self.message_text.move((screen_width - self.text_width) // 2, (self.height() - self.text_height) // 2)
+            else:
+                # 计算滚动距离和持续时间
+                screen_width = QApplication.primaryScreen().geometry().width()
+                scroll_distance = self.text_width + screen_width + self.space
+                scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
+                
+                self.text_animation = QPropertyAnimation(self.message_text, b"pos")
+                self.text_animation.setDuration(int(scroll_duration))
+                self.text_animation.setStartValue(QPoint(screen_width, (self.height() - self.text_height) // 2))
+                self.text_animation.setEndValue(QPoint(-(self.text_width + self.space), (self.height() - self.text_height) // 2))
+                self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
+                if self.text_animation:
+                    self.text_animation.finished.connect(self._on_text_animation_finished)
         
         # 淡入动画
         self.fade_in = QPropertyAnimation(self, b"windowOpacity")
@@ -186,91 +139,110 @@ class WarningBanner(QWidget):
             self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
             self.fade_out.finished.connect(self._on_fade_out_finished)
         
-    def _update_stripe_animation(self) -> None:
-        """更新条纹动画"""
-        self.offset = (self.offset + 1) % self.stripe.width()
-        self.update()
+    def _set_initial_position(self) -> None:
+        """设置初始窗口位置"""
+        # 获取屏幕尺寸
+        screen = QApplication.primaryScreen().availableGeometry()
         
-    def _on_text_animation_finished(self) -> None:
-        """文本动画完成处理"""
-        self.scroll_count += 1
-        if self.scroll_count >= self.max_scrolls:
-            # 达到最大滚动次数，关闭横幅
-            self.close_banner()
-        else:
-            # 重置位置并重新开始动画
-            screen_width = QApplication.primaryScreen().geometry().width()
-            if self.message_text:
-                self.message_text.move(screen_width, 0)
-                if self.text_animation:
-                    self.text_animation.start()
+        # 获取基础垂直偏移量
+        base_vertical_offset = int(self.config.get("base_vertical_offset", 0) or 0)
+        total_offset = base_vertical_offset + self.text_y_offset
         
-    def showEvent(self, event: QShowEvent) -> None:
-        """窗口显示事件，启动淡入动画和文本滚动"""
-        super().showEvent(event)
-        # 显示消息文本
+        # 设置窗口位置和宽度
+        self.setGeometry(
+            0,
+            total_offset,
+            screen.width(),
+            140
+        )
+        
+    def _create_message_text(self) -> None:
+        """创建消息文本标签"""
+        # 创建消息文本
+        self.message_text = QLabel(self)
+        self.message_text.setFont(QFont(["HarmonyOS Sans SC", "Microsoft YaHei UI", "sans-serif"], pointSize=36, weight=QFont.Weight.Bold))
+        self.message_text.setStyleSheet("color: #FFDE59; background: transparent;")
+        self.message_text.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.message_text.setWordWrap(False)
+        self.message_text.setTextFormat(Qt.TextFormat.RichText)  # 支持富文本
+        
+        # 处理关键字替换并生成HTML格式文本
+        html_text = process_text_with_html(self.text) if self.text else ""
+        self.message_text.setText(html_text)
+        
+        # 设置文本标签的位置和尺寸
         if self.message_text:
-            self.message_text.show()
-        # 开始淡入动画
-        if self.fade_in:
-            self.fade_in.start()
-        # 开始文本滚动动画
-        if self.text_animation:
-            self.text_animation.start()
-        
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标点击事件"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.click_count += 1
-            if self.click_count >= self.click_to_close:
-                self.close_banner()
-        super().mousePressEvent(event)
-        
-    def close_banner(self) -> None:
-        """关闭横幅"""
-        if not self._is_closing:
-            self._is_closing = True
-            # 启动淡出动画
-            if self.fade_out:
-                self.fade_out.start()
-        
-    def _on_fade_out_finished(self) -> None:
-        """淡出动画完成后的处理"""
-        # 停止条纹动画和其他动画
-        if self.stripe_timer:
-            self.stripe_timer.stop()
-        if self.text_animation:
-            self.text_animation.stop()
-        self.close()
-        self.window_closed.emit(self)
-        
-    def paintEvent(self, event: QPaintEvent) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)  # 抗锯齿
+            # 使用sizeHint来正确计算富文本的实际显示尺寸
+            self.text_width = self.message_text.sizeHint().width() if html_text else 0
+            self.text_height = self.message_text.sizeHint().height()
+            
+            # 获取屏幕宽度
+            screen_width = QApplication.primaryScreen().geometry().width()
+            
+            # 获取滚动模式配置
+            scroll_mode = self.config.get("scroll_mode", "always")  # 默认为"always"
+            
+            # 根据滚动模式决定是否启动动画
+            if scroll_mode == "always":
+                # 不论如何都滚动
+                should_scroll = True
+            elif scroll_mode == "auto":
+                # 可以展示完全的不滚动
+                # 对于警告样式横幅，使用屏幕宽度作为参考
+                should_scroll = self.text_width > screen_width * 0.8  # 当文本宽度超过屏幕宽度的80%时滚动
+            else:
+                should_scroll = True  # 默认滚动
+            
+            if should_scroll:
+                # 确保最小宽度为屏幕宽度，以便长文本可以完全滚动
+                calculated_width = max(self.text_width, screen_width)
+                self.message_text.setGeometry(0, 0, calculated_width, 140)
+                # 初始位置在右侧不可见
+                self.message_text.move(screen_width, 0)
+            else:
+                # 文本不滚动，居中显示
+                self.message_text.setGeometry(0, 0, screen_width, 140)
+                self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            self.message_text.hide()  # 隐藏消息文本，防止旧内容闪现
 
-        # 背景橙色
-        painter.fillRect(self.rect(), QColor(228, 8, 10, 180))
-
-        # 顶部条纹
-        y = 0
-        x = -self.offset
-        while x < self.width():
-            painter.drawPixmap(x, y, self.stripe)
-            x += self.stripe.width()
-
-        # 分割线（条纹下边缘）
-        painter.setPen(QPen(QColor(255, 222, 89, 200), 4))
-        painter.drawLine(0, self.stripe.height(), self.width(), self.stripe.height())
-
-        # 底部条纹
-        y = self.height() - self.stripe.height()
-        x = -self.offset
-        while x < self.width():
-            painter.drawPixmap(x, y, self.stripe)
-            x += self.stripe.width()
-
-        # 分割线（条纹上边缘）
-        painter.drawLine(0, y, self.width(), y)
+    def _init_text_animation(self) -> None:
+        """初始化文本动画"""
+        # 获取屏幕宽度
+        screen_width = QApplication.primaryScreen().geometry().width()
         
-        # 确保在退出前结束绘制
-        painter.end()
+        # 获取滚动模式配置
+        scroll_mode = self.config.get("scroll_mode", "always")  # 默认为"always"
+        
+        # 根据滚动模式决定是否启动动画
+        if scroll_mode == "always":
+            # 不论如何都滚动
+            should_scroll = True
+        elif scroll_mode == "auto":
+            # 可以展示完全的不滚动
+            # 对于警告样式横幅，使用屏幕宽度作为参考
+            should_scroll = self.text_width > screen_width * 0.8  # 当文本宽度超过屏幕宽度的80%时滚动
+        else:
+            should_scroll = True  # 默认滚动
+        
+        message_text = self.message_text
+        if message_text is not None:
+            if should_scroll:
+                scroll_distance = self.text_width + screen_width + self.space
+                scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
+                
+                self.text_animation = QPropertyAnimation(message_text, b"pos")
+                self.text_animation.setDuration(int(scroll_duration))
+                self.text_animation.setStartValue(QPoint(screen_width, 0))
+                self.text_animation.setEndValue(QPoint(-(self.text_width + self.space), 0))
+                self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
+                if self.text_animation:
+                    self.text_animation.finished.connect(self._on_text_animation_finished)
+            else:
+                # 不滚动时不需要设置动画
+                # 文本居中显示
+                message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                message_text.move((screen_width - self.text_width) // 2, (self.height() - self.text_height) // 2)
+                if self.text_animation:
+                    self.text_animation.stop()
+                    self.text_animation = None

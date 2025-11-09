@@ -54,7 +54,10 @@ class NotificationWindow(QWidget):
             logger.debug("初始化消息和滚动参数")
             # 将多行文本替换为单行文本，用空格连接
             initial_message = message or "这是一条测试消息，用于验证通知显示功能是否正常工作。消息长度可能会变化，需要确保滚动效果正确。"
-            self.message = " ".join(initial_message.splitlines())
+            # 处理文本中的关键字替换并生成HTML格式
+            from keyword_replacer import process_text_with_html
+            processed_message = process_text_with_html(initial_message)
+            self.message = " ".join(processed_message.splitlines())
             
             self.scroll_count = 0
             # 使用传入的max_scrolls参数，如果为None则使用配置文件中的设置
@@ -157,7 +160,9 @@ class NotificationWindow(QWidget):
         
         # 创建并添加标签文本
         label_text = QLabel("消息提醒:")
-        label_text.setFont(QFont("Microsoft YaHei", int((self.font_size or 48.0) // 2)))  # 根据配置的字体大小调整
+        font = QFont("Microsoft YaHei", int((self.font_size or 48.0) // 2))
+        font.setBold(True)  # 启用加粗效果
+        label_text.setFont(font)
         label_text.setStyleSheet("color: #3b9fdc; background: transparent;")
         label_text.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         label_text.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -185,11 +190,15 @@ class NotificationWindow(QWidget):
             
             # 创建消息文本
             message_text = QLabel(self.message)
-            message_text.setFont(QFont("Microsoft YaHei", int((self.font_size or 48.0) // 2)))  # 使用配置的字体大小
+            font = QFont("Microsoft YaHei", int((self.font_size or 48.0) // 2))
+            font.setBold(True)  # 启用加粗效果
+            message_text.setFont(font)
             message_text.setStyleSheet("color: white; background: transparent;")
             message_text.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
             message_text.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             message_text.setWordWrap(False)
+            # 启用富文本显示以支持HTML格式
+            message_text.setTextFormat(Qt.TextFormat.RichText)
             
             # 设置文本标签的高度与父容器一致
             message_text.setGeometry(0, 0, 1000, int(self.window_height or 128))  # 使用配置的高度
@@ -366,7 +375,8 @@ class NotificationWindow(QWidget):
                 if hasattr(self, 'message_text'):
                     self.animation = QPropertyAnimation(self.message_text, b"pos")
                     self.animation.setDuration(int(scroll_duration))
-                    self.animation.setStartValue(QPoint(available_width, 0))  # 从右侧外部开始
+                    # 从屏幕右侧边距处开始，确保文本从屏幕右边缘开始滚动
+                    self.animation.setStartValue(QPoint(screen_width - int(self.right_margin or 93), 0))
                     self.animation.setEndValue(QPoint(-(self.text_width + int(self.space or 150)), 0))  # 滚动到左侧外部结束
                     self.animation.setEasingCurve(QEasingCurve.Type.Linear)
                     self.animation.finished.connect(self.animation_completed)
@@ -402,11 +412,10 @@ class NotificationWindow(QWidget):
                 self.message_text.adjustSize()
                 logger.debug("消息文本尺寸已调整")
             
-            # 使用 fontMetrics 获取更准确的文本宽度
+            # 使用sizeHint获取更准确的富文本宽度
             if hasattr(self, 'message_text'):
-                fm = self.message_text.fontMetrics()
-                self.text_width = fm.horizontalAdvance(self.message)
-                logger.debug(f"通过fontMetrics计算文本宽度: {self.text_width}")
+                self.text_width = self.message_text.sizeHint().width()
+                logger.debug(f"通过sizeHint计算文本宽度: {self.text_width}")
             
             if self.text_width == 0:
                 self.text_width = 800  # 默认宽度
@@ -491,18 +500,16 @@ class NotificationWindow(QWidget):
             # 重置位置并重新开始动画
             primary_screen = QApplication.primaryScreen()
             screen_width = primary_screen.geometry().width()
-            device_pixel_ratio = primary_screen.devicePixelRatio()
             
-            adjusted_left_margin = int(int(self.left_margin or 93) * device_pixel_ratio)
-            adjusted_right_margin = int(int(self.right_margin or 93) * device_pixel_ratio)
-            adjusted_label_mask_width = int(int(self.label_mask_width or 305) * device_pixel_ratio)
-            available_width = screen_width - adjusted_left_margin - adjusted_label_mask_width - adjusted_right_margin
+            # 初始化start_x变量
+            start_x = screen_width - int(self.right_margin or 93)
             
             if hasattr(self, 'message_text'):
-                self.message_text.move(available_width, 0)
+                # 从右侧边距处开始，确保每次滚动都从屏幕右边缘开始
+                self.message_text.move(start_x, 0)
                 if self.animation:
                     self.animation.start()
-            logger.debug("重新开始滚动动画")
+            logger.debug(f"重新开始滚动动画，起始位置: {start_x}")
             
     def close_with_animation(self) -> None:
         """带动画效果关闭窗口"""
@@ -655,9 +662,8 @@ class NotificationWindow(QWidget):
                 logger.warning("消息文本标签未创建，无法计算尺寸")
                 return
                 
-            # 使用 fontMetrics 获取更准确的文本宽度
-            fm = self.message_text.fontMetrics()
-            self.text_width = fm.horizontalAdvance(self.message)
+            # 使用sizeHint获取更准确的富文本宽度
+            self.text_width = self.message_text.sizeHint().width()
             
             logger.debug(f"文本尺寸计算完成：宽度={self.text_width}")
         except Exception as e:
@@ -773,6 +779,21 @@ class NotificationWindow(QWidget):
             logger.debug("通知窗口配置更新完成")
         except Exception as e:
             logger.error(f"更新通知窗口配置时出错: {e}")
+
+    def set_message(self, message: str) -> None:
+        """设置消息文本
+        
+        Args:
+            message (str): 要显示的消息文本
+        """
+        # 处理文本中的关键字替换并生成HTML格式
+        from keyword_replacer import process_text_with_html
+        processed_message = process_text_with_html(message)
+        self.message = processed_message
+        if self.message_text:
+            self.message_text.setText(processed_message)
+            # 重新启动动画
+            self.setup_animation()
 
 def main():
     """主函数 - 用于测试通知窗口显示"""

@@ -22,6 +22,7 @@ from config_dialog import ConfigDialog
 from send_notification_dialog import SendNotificationDialog
 from banner_factory import create_banner  # 导入横幅工厂
 from license_manager import LicenseManager  # 导入许可证管理器
+from keyword_replacer import reload_keyword_rules  # 导入关键字替换规则重载函数
 from typing import Optional, List, Tuple, Union, Callable, cast, Dict
 
 
@@ -48,7 +49,7 @@ def show_license_info_and_exit(license_manager: LicenseManager, hardware_info: D
     logger.info(f"硬件标识: {hardware_key}")
     
     # 显示消息
-    message = f"""许可证验证失败，程序无法启动！
+    message = f"""许可证校验未通过，程序拒绝启动！
 
 请将以下机器码信息提供给开发者以获取有效许可证：
 
@@ -239,6 +240,7 @@ class ToastBannerManager(QObject):
         self.config_watcher: Optional[ConfigWatcher] = None
         self.config_timer: Optional[QTimer] = None
         self.listener_thread: Optional[NotificationListenerThread] = None
+        self.notification_thread: Optional[NotificationListenerThread] = None  # 添加缺失的属性定义
         self.tray_manager: Optional[TrayManager] = None
         self._send_dialog: Optional[SendNotificationDialog] = None
         self.message_history: List[Tuple[str, float]] = []
@@ -512,6 +514,9 @@ class ToastBannerManager(QObject):
             # 重新加载配置
             self.config = load_config()
             
+            # 重新加载关键字替换规则
+            reload_keyword_rules()
+            
             # 更新日志等级
             setup_logger(self.config)
             
@@ -660,6 +665,29 @@ class ToastBannerManager(QObject):
             self.tray_manager = None
             
         logger.info("应用程序资源清理完成")
+
+    def _on_config_changed(self) -> None:
+        """配置更改回调"""
+        logger.debug("配置发生更改，重新加载配置")
+        # 重新加载配置
+        self.config = load_config()
+        
+        # 重新加载关键字替换规则
+        reload_keyword_rules()
+        
+        # 重新初始化日志系统
+        setup_logger(self.config)
+        
+        # 更新托盘管理器的引用配置
+        if hasattr(self, 'tray_manager') and self.tray_manager:
+            self.tray_manager.config = self.config
+            
+        # 更新通知监听线程的引用配置
+        if hasattr(self, 'listener_thread') and self.listener_thread and \
+           hasattr(self.listener_thread, 'config'):
+            self.listener_thread.config = self.config
+            
+        logger.info("配置重新加载完成")
 
 
 def main():
