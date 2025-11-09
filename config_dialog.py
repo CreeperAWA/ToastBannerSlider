@@ -11,7 +11,7 @@ from logger_config import logger
 from config import load_config
 from typing import Dict, Union, List
 import typing
-from typing import List, Dict, Union, Optional, Any, Callable
+from typing import List, Dict, Union
 
 # 导入新创建的模块
 from keyword_rule_dialog import KeywordRuleDialog

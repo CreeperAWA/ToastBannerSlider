@@ -3,8 +3,7 @@
 该模块为QML提供图标资源加载功能。
 """
 
-from PySide6.QtCore import QObject, Slot, QUrl
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QObject, Slot
 from icon_manager import load_icon
 from typing import Dict, Union, Optional
 

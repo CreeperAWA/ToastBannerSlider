@@ -360,7 +360,8 @@ class WarningBanner(QWidget):
                 # 不滚动时不需要设置动画
                 # 设置文本居中显示
                 self.text_proxy.setPos((screen_width - self.text_width) // 2, vertical_center_position)
-                self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                if self.message_text:
+                    self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
     def _update_stripe_animation(self) -> None:
         """更新条纹动画"""

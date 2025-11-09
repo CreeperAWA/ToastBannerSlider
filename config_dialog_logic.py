@@ -13,7 +13,7 @@ from config import save_config, get_config_path, DEFAULT_CONFIG
 from icon_manager import load_icon, get_resource_path, save_custom_icon
 import os
 import typing
-from typing import List, Dict, Union, Optional, Any, Callable
+from typing import List, Dict, Union
 
 
 class TrayIconUpdateEvent(QEvent):

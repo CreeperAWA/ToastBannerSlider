@@ -6,16 +6,11 @@
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QFormLayout,
                                QLineEdit, QSpinBox, QDoubleSpinBox, QCheckBox,
                                QPushButton, QGroupBox, QComboBox, QLabel,
-                               QFileDialog, QMessageBox, QScrollArea, QWidget,
-                               QFrame, QListWidget, QListWidgetItem, QDialogButtonBox,
-                               QAbstractItemView)
-from PySide6.QtCore import Qt, QAbstractItemModel
-from PySide6.QtGui import QStandardItemModel, QIcon, QPixmap, QFont
+                               QScrollArea, QWidget,
+                               QFrame, QListWidget, QAbstractItemView)
+from PySide6.QtCore import Qt
 from logger_config import logger
-from config import get_config_path, DEFAULT_CONFIG
-from icon_manager import get_resource_path, save_custom_icon
-import os
-from typing import Dict, Union, List, cast
+from typing import Dict, Union
 
 
 class ConfigDialogUI:

@@ -9,9 +9,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
 from PySide6.QtWidgets import QWidget as QWidgetType
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFontDialog
-from logger_config import logger
-from typing import Dict, Union, cast
-import sys
+from typing import Dict, Union
 
 
 class KeywordRuleDialog(QDialog):
