@@ -178,7 +178,14 @@ class WarningBannerQML(QWidget):
             try:
                 # 使用类型注释忽略Pylance错误
                 root_object = self.quick_widget.rootObject()
-                root_object.cleanup()  # type: ignore
+                # 有些 QML 根对象可能不导出 cleanup 方法，先检测再调用
+                if hasattr(root_object, 'cleanup'):
+                    try:
+                        root_object.cleanup()  # type: ignore
+                    except Exception as e:
+                        logger.error(f"QML cleanup call failed: {e}")
+                else:
+                    logger.debug("QML root object has no cleanup() method; skipping cleanup call")
             except Exception as e:
                 logger.error(f"QML cleanup error: {e}")
         

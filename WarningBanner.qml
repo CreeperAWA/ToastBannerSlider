@@ -8,13 +8,15 @@ Item {
     opacity: 1.0
     
     property string bannerText: ""
-    property int stripeOffset: 0
+    // stripeOffset 每帧变更会导致 Canvas 重绘；改为移动更大的 Canvas 节省重绘开销
+    property int stripeAnimX: 0
     property int maxScrolls: 0
     property real scrollSpeed: 0.0
     property int rightSpacing: 0
     property int bannerSpacing: 10  // 横幅间距
     property int scrollCount: 0
-    property var textAnimation: null  // 添加动画变量定义
+    // 复用的文本滚动动画（见下方 textScrollAnim）
+    property real textOffset: 0
     property real bannerOpacity: 0.9  // 横幅透明度
     property string scrollMode: "always"  // 滚动模式
     
@@ -38,56 +40,75 @@ Item {
             bannerObject.logDebug("  bannerText: " + bannerText);
             bannerObject.logDebug("  bannerOpacity: " + bannerOpacity);
             bannerObject.logDebug("  scrollMode: " + scrollMode);
-            
             // 延迟启动文本动画
             startTextAnimationTimer.start();
         }
     }
     
-    // 背景红色矩形
+    // 背景红色矩形（恢复被意外移除的背景）
     Rectangle {
         id: background
         anchors.fill: parent
-        color: "#b3080a"  // 红色背景
-        opacity: bannerOpacity  // 使用配置的横幅透明度
-        // 注意: bannerSpacing 用于控制多个横幅组件之间的垂直间距，
-        // 应由父级容器(如Column)使用，而不是作为内部边距
-        // 启用层渲染以提高性能
+        color: "#b3080a"
+        opacity: bannerOpacity
         layer.enabled: true
         layer.smooth: true
+    }
+
+    // 延迟启动文本动画的定时器（在 startupTimer 触发后启动）
+    Timer {
+        id: startTextAnimationTimer
+        interval: 100
+        repeat: false
+        onTriggered: {
+            var src = root.bannerText ? root.bannerText : "";
+            if (src.indexOf("<span style=") !== -1 && src.indexOf("</span>") !== -1) {
+                messageText1.text = messageText2.text = src;
+            } else if (src.indexOf("<") !== -1 || src.indexOf(">") !== -1) {
+                messageText1.text = messageText2.text = src;
+            } else {
+                var escapedText = src.replace(/&/g, "&amp;")
+                                     .replace(/</g, "&lt;")
+                                     .replace(/>/g, "&gt;")
+                                     .replace(/\"/g, "&quot;")
+                                     .replace(/'/g, "&#039;");
+                messageText1.text = messageText2.text = escapedText;
+            }
+            Qt.callLater(startScrollingText);
+        }
     }
     
     // 条纹图案
     Repeater {
         id: stripeCanvasRepeater
         model: 2  // 顶部和底部条纹
-        
+
+        // 改为绘制比容器更宽的 Canvas，然后通过移动 Canvas 的 x 来创建循环条纹效果，避免每帧重绘
         Canvas {
             id: stripeCanvas
-            anchors.fill: parent
-            // 启用抗锯齿和层渲染以提高性能
+            // 宽度比视口略大以便循环时拼接无缝
+            width: parent.width + 64
+            height: 32
+            x: stripeAnimX
+            y: (index === 0) ? 0 : parent.height - 32
             antialiasing: true
             layer.enabled: true
             layer.smooth: true
             renderTarget: Canvas.FramebufferObject
-            renderStrategy: Canvas.Threaded
-            
+            renderStrategy: Canvas.Cooperative
+
             onPaint: {
                 var ctx = getContext("2d");
                 ctx.clearRect(0, 0, width, height);
-                
-                // 确定Y坐标 (0为顶部，height-32为底部)
-                var y = (index === 0) ? 0 : parent.height - 32;
-                
-                // 绘制黄色条纹
-                ctx.fillStyle = "#ccffde59"; // 带透明度的黄色
-                
+
+                // 绘制黄色条纹（静态纹理）
+                ctx.fillStyle = "#ccffde59";
                 for (var x = -40; x < width + 40; x += 32) {
                     ctx.beginPath();
-                    ctx.moveTo(x - stripeOffset, y + 32);
-                    ctx.lineTo(x + 16 - stripeOffset, y);
-                    ctx.lineTo(x + 32 - stripeOffset, y);
-                    ctx.lineTo(x + 16 - stripeOffset, y + 32);
+                    ctx.moveTo(x, height);
+                    ctx.lineTo(x + 16, 0);
+                    ctx.lineTo(x + 32, 0);
+                    ctx.lineTo(x + 16, height);
                     ctx.closePath();
                     ctx.fill();
                 }
@@ -121,52 +142,59 @@ Item {
         height: parent.height
         clip: true  // 启用裁剪，确保文字在区域内显示
         
+        // 使用两个并排的 Text，以实现平滑无跳动的循环滚动
         Text {
-            id: messageText
-            // 初始位置在右侧
-            x: textContainer.width
+            id: messageText1
+            x: textOffset
             y: (parent.height - paintedHeight) / 2
             text: bannerText ? bannerText : "默认文本"
-            font.pixelSize: 48  // 增大字体大小从24到48
-            font.bold: true     // 添加粗体以匹配CPU/GPU版本
-            // 移除font.family设置，避免覆盖HTML中的字体样式
-            color: "#FFDE59"    // 设置默认文本颜色为黄色
-            // 启用层渲染和抗锯齿以提高性能和显示质量
+            font.pixelSize: 48
+            font.bold: true
+            color: "#FFDE59"
             layer.enabled: true
             layer.smooth: true
             antialiasing: true
             renderType: Text.QtRendering
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
-            // 添加文本渲染优化属性，解决长文本截断问题
-            textFormat: Text.RichText  // 支持HTML格式文本
+            textFormat: Text.RichText
             elide: Text.ElideNone
             wrapMode: Text.NoWrap
         }
-    }
-    
-    // 条纹动画 - 使用连续动画替代定时器
-    Behavior on stripeOffset {
-        NumberAnimation {
-            duration: 16
-            easing.type: Easing.Linear
+
+        Text {
+            id: messageText2
+            // 紧跟在第一个文本之后
+            x: textOffset + (messageText1.paintedWidth ? messageText1.paintedWidth : 0) + rightSpacing
+            y: (parent.height - paintedHeight) / 2
+            text: bannerText ? bannerText : "默认文本"
+            font.pixelSize: 48
+            font.bold: true
+            color: "#FFDE59"
+            layer.enabled: true
+            layer.smooth: true
+            antialiasing: true
+            renderType: Text.QtRendering
+            horizontalAlignment: Text.AlignLeft
+            verticalAlignment: Text.AlignVCenter
+            textFormat: Text.RichText
+            elide: Text.ElideNone
+            wrapMode: Text.NoWrap
+            visible: false // 默认不可见，只有当需要循环滚动时才显示
         }
     }
-
-    // 启动条纹动画的定时器（只执行一次）
+    
+    // 条纹动画驱动（以每帧移动 Canvas 的 x 来模拟滚动，避免每帧重绘）
     Timer {
-        id: stripeAnimationTimer
+        id: stripeDriveTimer
         interval: 16
         repeat: true
         running: true
         onTriggered: {
-            stripeOffset = (stripeOffset + 1) % 32;
-            // 触发所有条纹重绘
-            for (var i = 0; i < stripeCanvasRepeater.count; i++) {
-                var canvas = stripeCanvasRepeater.itemAt(i);
-                if (canvas) {
-                    canvas.requestPaint();
-                }
+            // 向左移动 1px；当偏移达到 -32 时复位为 0（图案周期为32px）
+            stripeAnimX = stripeAnimX - 1;
+            if (stripeAnimX <= -32) {
+                stripeAnimX = 0;
             }
         }
     }
@@ -174,22 +202,25 @@ Item {
     // 文本滚动动画
     function startScrollingText() {
         // 通过Python端记录日志
-        bannerObject.logDebug("开始滚动文本，当前滚动次数: " + scrollCount + " 最大滚动次数: " + maxScrolls);
-        bannerObject.logDebug("滚动模式: " + scrollMode);
+        bannerObject.logDebug("开始滚动文本，计数: " + scrollCount + ", 模式: " + scrollMode);
         
         // 根据滚动模式决定是否滚动
         if (scrollMode === "never") {
             bannerObject.logDebug("滚动模式为never，不滚动文本");
             // 文本居中显示
-            messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
+            messageText1.x = (textContainer.width - messageText1.paintedWidth) / 2;
+            messageText2.visible = false;
+            if (textDriveTimer.running) textDriveTimer.stop();
             return;
         }
-        
+
         // 如果是auto模式，检查文本是否需要滚动
-        if (scrollMode === "auto" && messageText.paintedWidth <= textContainer.width) {
+        if (scrollMode === "auto" && messageText1.paintedWidth <= textContainer.width) {
             bannerObject.logDebug("滚动模式为auto且文本宽度小于窗口宽度，不滚动文本");
             // 文本居中显示
-            messageText.x = (textContainer.width - messageText.paintedWidth) / 2;
+            messageText1.x = (textContainer.width - messageText1.paintedWidth) / 2;
+            messageText2.visible = false;
+            if (textDriveTimer.running) textDriveTimer.stop();
             return;
         }
         
@@ -201,39 +232,55 @@ Item {
             return;
         }
         
-        // 增加滚动计数（在动画开始前增加）
-        scrollCount++;
-        bannerObject.logDebug("增加滚动计数，当前计数: " + scrollCount);
+    // 增加滚动计数（在动画开始前增加）
+    scrollCount++;
         
-        // 计算滚动终点 - 文本完全通过容器并消失
-        var endX = -(messageText.paintedWidth + rightSpacing);
-        
-        // 设置动画持续时间 (基于速度 px/s)，并四舍五入为整数
-        // 使用更精确的滚动距离计算，确保文本完全滚动
-        var scrollDistance = messageText.paintedWidth + textContainer.width + rightSpacing;
-        var duration = Math.round((scrollDistance / scrollSpeed) * 1000);
+    // 计算滚动终点 - 文本完全通过容器并消失
+    var endX = -(messageText1.paintedWidth + rightSpacing);
+
+    // 设置动画持续时间 (基于速度 px/s)，并四舍五入为整数
+    // 使用更精确的滚动距离计算，确保文本完全滚动
+    var effectiveSpeed = scrollSpeed > 0 ? scrollSpeed : 80; // 默认为80px/s，避免除以0
+    var scrollDistance = messageText1.paintedWidth + textContainer.width + rightSpacing;
+    var duration = Math.round((scrollDistance / effectiveSpeed) * 1000);
         bannerObject.logDebug("动画参数 - 持续时间: " + duration + " 终点: " + endX + " 距离: " + scrollDistance);
         
-        // 如果已经有动画在运行，停止它
-        if (textAnimation != null) {
-            if (textAnimation.running) {
-                textAnimation.stop();
-            }
-            textAnimation.destroy();
+        // 使用基于定时器的驱动 (textDriveTimer) 来实现平滑循环滚动
+        // 初始化偏移，使第一条文本从右侧进入
+        textOffset = textContainer.width;
+        // 设置文本内容并决定是否启用第二个副本
+        messageText1.text = messageText2.text = messageText1.text ? messageText1.text : bannerText;
+        // 当文本宽度超出容器宽度时启用循环副本
+        if (messageText1.paintedWidth > textContainer.width) {
+            messageText2.visible = true;
+        } else {
+            messageText2.visible = false;
         }
-        
-        // 创建新的动画
-        // 确保动画从正确的位置开始
-        textAnimation = Qt.createQmlObject('import QtQuick 2.15; NumberAnimation { target: messageText; property: "x"; from: ' + textContainer.width + '; to: ' + endX + '; duration: ' + duration + '; easing.type: Easing.Linear; }', root);
-        
-        textAnimation.finished.connect(function() {
-            bannerObject.logDebug("文本动画完成，重新开始");
-            // 当动画完成时，立即重新开始，消除停顿
-            messageText.x = textContainer.width;
-            startScrollingText();
-        });
-        
-        textAnimation.start();
+        // 启动定时器
+        if (!textDriveTimer.running) {
+            textDriveTimer.start();
+        }
+    }
+
+    // 基于每帧更新的文本驱动定时器（比动态 NumberAnimation 更可控以避免跳帧/抽搐）
+    Timer {
+        id: textDriveTimer
+        interval: 16
+        repeat: true
+        running: false
+        onTriggered: {
+            // 以 scrollSpeed(px/s) 驱动偏移
+            // 以 16ms 近似每帧时间计算位移（与 timer.interval 保持一致）
+            var delta = scrollSpeed * 16 / 1000.0;
+            if (delta <= 0) delta = 1; // 防止为0导致无法移动
+            textOffset -= delta;
+            var cycle = messageText1.paintedWidth + rightSpacing;
+            if (cycle <= 0) return;
+            // 当偏移超出周期，回环到屏幕右侧（使文字从屏幕右端重新滚入）
+            if (textOffset <= -cycle) {
+                textOffset = textContainer.width;
+            }
+        }
     }
     
     // 淡入动画
@@ -276,42 +323,16 @@ Item {
         // 启动淡出动画
         fadeOutAnimation.start();
     }
-    
-    // 用于销毁动画对象的清理函数
+
+    // 清理函数：供 Python 在销毁 QML 前调用
     function cleanup() {
-        if (textAnimation != null) {
-            if (textAnimation.running) {
-                textAnimation.stop();
-            }
-            textAnimation.destroy();
-            textAnimation = null;
+        // 停止定时器和动画，清理临时资源
+        if (textDriveTimer.running) {
+            textDriveTimer.stop();
+        }
+        if (stripeDriveTimer.running) {
+            stripeDriveTimer.stop();
         }
     }
-    
-    // 延迟启动文本动画的定时器
-    Timer {
-        id: startTextAnimationTimer
-        interval: 100
-        repeat: false
-        onTriggered: {
-            // 在开始滚动前，确保文本正确处理
-            // 检查文本是否已经包含HTML标签（由关键字替换功能生成）
-            if (bannerText.indexOf("<span style=") !== -1 && bannerText.indexOf("</span>") !== -1) {
-                // 如果文本包含样式span标签，说明已经过关键字替换处理，直接使用
-                messageText.text = bannerText;
-            } else if (bannerText.indexOf("<") !== -1 || bannerText.indexOf(">") !== -1) {
-                // 如果包含其他HTML标签，直接使用
-                messageText.text = bannerText;
-            } else {
-                // 对于纯文本，进行HTML转义并应用默认样式
-                var escapedText = bannerText.replace(/&/g, "&amp;")
-                                           .replace(/</g, "&lt;")
-                                           .replace(/>/g, "&gt;")
-                                           .replace(/"/g, "&quot;")
-                                           .replace(/'/g, "&#039;");
-                messageText.text = escapedText;
-            }
-            startScrollingText();
-        }
-    }
+
 }
