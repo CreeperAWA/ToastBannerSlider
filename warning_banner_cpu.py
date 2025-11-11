@@ -6,7 +6,7 @@
 
 from PySide6.QtWidgets import QWidget, QApplication, QLabel
 from PySide6.QtCore import Qt, QTimer, Signal, QPoint, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QFont, QPainter, QColor, QPen, QPixmap, QMouseEvent, QPolygon, QPaintEvent, QShowEvent
+from PySide6.QtGui import QFont, QPainter, QColor, QPen, QPixmap, QMouseEvent, QPolygon, QPaintEvent, QShowEvent, QTextDocument
 from config import load_config
 from typing import Dict, Union, Optional
 from keyword_replacer import process_text_with_html  # 支持富文本（HTML）替换
@@ -125,10 +125,19 @@ class WarningBanner(QWidget):
         html_text = process_text_with_html(self.text) if self.text else ""
         self.message_text.setText(html_text)
 
-        # 设置文本标签的位置和尺寸，使用 sizeHint 获取富文本实际尺寸
+        # 设置文本标签的位置和尺寸，使用 QTextDocument 精确测量富文本实际尺寸
         if self.message_text:
-            self.text_width = self.message_text.sizeHint().width() if html_text else 0
-            self.text_height = self.message_text.sizeHint().height()
+            if html_text:
+                doc = QTextDocument()
+                doc.setDefaultFont(self.message_text.font())
+                doc.setHtml(html_text)
+                size = doc.size()
+                self.text_width = int(size.width())
+                self.text_height = int(size.height())
+            else:
+                fm = self.message_text.fontMetrics()
+                self.text_width = fm.horizontalAdvance(self.text)
+                self.text_height = fm.height()
 
             # 获取屏幕宽度
             screen_width = QApplication.primaryScreen().geometry().width()
@@ -140,17 +149,22 @@ class WarningBanner(QWidget):
             if scroll_mode == "always":
                 should_scroll = True
             elif scroll_mode == "auto":
-                should_scroll = self.text_width > screen_width * 0.8
+                # 如果文本能完整展示于屏幕宽度内，则不滚动
+                should_scroll = self.text_width > screen_width
             else:
                 should_scroll = True
+
+            # 存储决定以便 _setup_animations 使用
+            self.should_scroll = should_scroll
 
             if should_scroll:
                 calculated_width = max(self.text_width, screen_width)
                 self.message_text.setGeometry(0, 0, calculated_width, 140)
                 self.message_text.move(screen_width, 0)
             else:
+                # 文本不滚动，居中显示
                 self.message_text.setGeometry(0, 0, screen_width, 140)
-                self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
 
             self.message_text.hide()
 
@@ -187,18 +201,25 @@ class WarningBanner(QWidget):
         
         # 文本滚动动画
         if self.message_text:
-            # 计算滚动距离和持续时间
+            # 决定是否滚动（在 _create_message_text 中已计算并保存为 self.should_scroll）
+            should_scroll = getattr(self, 'should_scroll', True)
             screen_width = QApplication.primaryScreen().geometry().width()
-            scroll_distance = self.text_width + screen_width + self.space
-            scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
-            
-            self.text_animation = QPropertyAnimation(self.message_text, b"pos")
-            self.text_animation.setDuration(int(scroll_duration))
-            self.text_animation.setStartValue(QPoint(screen_width, 0))
-            self.text_animation.setEndValue(QPoint(-(self.text_width + self.space), 0))
-            self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
-            if self.text_animation:
-                self.text_animation.finished.connect(self._on_text_animation_finished)
+            if should_scroll:
+                # 计算滚动距离和持续时间
+                scroll_distance = self.text_width + screen_width + self.space
+                scroll_duration = (scroll_distance / self.speed) * 1000  # 转换为毫秒
+                
+                self.text_animation = QPropertyAnimation(self.message_text, b"pos")
+                self.text_animation.setDuration(int(scroll_duration))
+                self.text_animation.setStartValue(QPoint(screen_width, 0))
+                self.text_animation.setEndValue(QPoint(-(self.text_width + self.space), 0))
+                self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
+                if self.text_animation:
+                    self.text_animation.finished.connect(self._on_text_animation_finished)
+            else:
+                # 不滚动时确保居中显示
+                self.message_text.setGeometry(0, 0, screen_width, 140)
+                self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
         
         # 淡入动画
         self.fade_in = QPropertyAnimation(self, b"windowOpacity")
