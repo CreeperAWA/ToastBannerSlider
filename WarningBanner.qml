@@ -224,16 +224,12 @@ Item {
             return;
         }
         
-        // 如果已经达到了最大滚动次数，则通知关闭
-        if (scrollCount >= maxScrolls && maxScrolls > 0) {
+        // 如果已经达到了最大滚动次数，则通知关闭（在开始前检测）
+        if (maxScrolls > 0 && scrollCount >= maxScrolls) {
             bannerObject.logDebug("达到最大滚动次数，准备关闭横幅");
-            // 调用Python对象的方法
             bannerObject.close_banner_slot();
             return;
         }
-        
-    // 增加滚动计数（在动画开始前增加）
-    scrollCount++;
         
     // 计算滚动终点 - 文本完全通过容器并消失
     var endX = -(messageText1.paintedWidth + rightSpacing);
@@ -276,9 +272,23 @@ Item {
             textOffset -= delta;
             var cycle = messageText1.paintedWidth + rightSpacing;
             if (cycle <= 0) return;
-            // 当偏移超出周期，回环到屏幕右侧（使文字从屏幕右端重新滚入）
+            // 当偏移超出周期，说明完成一次完整滚动周期
             if (textOffset <= -cycle) {
+                // 完成一次循环
+                // 先回环到屏幕右侧以准备下一次滚动
                 textOffset = textContainer.width;
+                // 若配置了最大滚动次数，则在每次完整循环后增加计数并检测是否达到上限
+                if (maxScrolls > 0) {
+                    scrollCount = scrollCount + 1;
+                    bannerObject.logDebug("已完成完整滚动次数: " + scrollCount);
+                    if (scrollCount >= maxScrolls) {
+                        bannerObject.logDebug("达到最大滚动次数，停止滚动并关闭横幅");
+                        // 停止定时器并触发 Python 的关闭流程
+                        if (textDriveTimer.running) textDriveTimer.stop();
+                        bannerObject.close_banner_slot();
+                        return;
+                    }
+                }
             }
         }
     }
