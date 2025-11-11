@@ -391,16 +391,22 @@ class ConfigDialogLogic:
         is_gpu = current_backend in ["opengl", "opengles"]
 
         # 控制透明度设置的可见性
-        if is_gpu:
-            # 使用GPU模式渲染时隐藏透明度设置
-            self.dialog.banner_opacity_spinbox.hide()
-            self.dialog.banner_opacity_label.hide()
-            logger.debug("隐藏透明度设置")
-        else:
-            # 非GPU模式时显示透明度设置
-            self.dialog.banner_opacity_spinbox.show()
-            self.dialog.banner_opacity_label.show()
-            logger.debug("显示透明度设置")
+        # 移除隐藏透明度设置的逻辑，始终显示透明度设置
+        # if is_gpu:
+        #     # 使用GPU模式渲染时隐藏透明度设置
+        #     self.dialog.banner_opacity_spinbox.hide()
+        #     self.dialog.banner_opacity_label.hide()
+        #     logger.debug("隐藏透明度设置")
+        # else:
+        #     # 非GPU模式时显示透明度设置
+        #     self.dialog.banner_opacity_spinbox.show()
+        #     self.dialog.banner_opacity_label.show()
+        #     logger.debug("显示透明度设置")
+        
+        # 始终显示透明度设置
+        self.dialog.banner_opacity_spinbox.show()
+        self.dialog.banner_opacity_label.show()
+        logger.debug("显示透明度设置")
 
         # 更新GPU选项的启用/禁用状态
         self.update_gpu_options_enabled()
