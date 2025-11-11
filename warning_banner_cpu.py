@@ -308,8 +308,12 @@ class WarningBanner(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)  # 抗锯齿
 
-        # 背景橙色
-        painter.fillRect(self.rect(), QColor(228, 8, 10, 180))
+        # 获取配置的透明度
+        banner_opacity: float = float(self.config.get("banner_opacity", 0.9) or 0.9)
+        alpha_value: int = int(banner_opacity * 255)
+        
+        # 背景橙色 (使用配置的透明度)
+        painter.fillRect(self.rect(), QColor(228, 8, 10, alpha_value))
 
         # 顶部条纹
         y = 0
