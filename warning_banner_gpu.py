@@ -30,6 +30,8 @@ class WarningBanner(QWidget):
         
         # 初始化属性
         self.config: Dict[str, Union[str, int, float, bool, None]] = load_config()
+        # 读取横幅透明度配置（0.0 - 1.0）
+        self.banner_opacity: float = float(self.config.get("banner_opacity", 0.9) or 0.9)
         # 处理文本中的关键字替换并生成HTML格式
         processed_text = process_text_with_html(text) if text else ""
         self.text = processed_text if processed_text else ""
@@ -100,6 +102,11 @@ class WarningBanner(QWidget):
             Qt.WindowType.WindowStaysOnTopHint | 
             Qt.WindowType.Tool
         )
+        # 使顶部窗口支持透明背景
+        try:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        except Exception:
+            pass
         
         # 启用窗口渲染优化
         self.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
@@ -151,7 +158,13 @@ class WarningBanner(QWidget):
         self.graphics_view.setScene(self.scene)
         
         # 创建背景矩形项，使用配置的透明度 (与CPU版本一致: QColor(228, 8, 10, 180))
-        background_color = QColor(228, 8, 10, 180)  # 保持与CPU版本一致
+        # 根据配置 banner_opacity 调整基础背景 alpha
+        try:
+            base_alpha = 180
+            computed_alpha = int(max(0, min(255, base_alpha * float(self.banner_opacity))))
+        except Exception:
+            computed_alpha = 180
+        background_color = QColor(228, 8, 10, computed_alpha)  # 保持与CPU版本一致但受配置控制
         background_rect = self.scene.addRect(0, 0, screen_width, 140, 
                                            QPen(Qt.PenStyle.NoPen), 
                                            QBrush(background_color))
@@ -171,6 +184,12 @@ class WarningBanner(QWidget):
         
         # 设置点击事件处理器
         self._setup_click_handler()
+
+        # 应用配置中的初始透明度到整个横幅
+        try:
+            self.update_opacity(self.banner_opacity)
+        except Exception:
+            pass
         
     def _create_stripe_pattern(self) -> None:
         """创建条纹图案"""
@@ -294,14 +313,22 @@ class WarningBanner(QWidget):
         if self.fade_in:
             self.fade_in.setDuration(int(self.config.get("fade_animation_duration", 1500) or 1500))
             self.fade_in.setStartValue(0.0)
-            self.fade_in.setEndValue(1.0)
+            # 使用配置的最大横幅透明度作为淡入目标
+            try:
+                self.fade_in.setEndValue(float(self.banner_opacity))
+            except Exception:
+                self.fade_in.setEndValue(1.0)
             self.fade_in.setEasingCurve(QEasingCurve.Type.InOutQuad)
         
         # 淡出动画 (与CPU版本保持一致)
         self.fade_out = QPropertyAnimation(self, b"windowOpacity")
         if self.fade_out:
             self.fade_out.setDuration(int(self.config.get("fade_animation_duration", 1500) or 1500))
-            self.fade_out.setStartValue(1.0)
+            # 淡出动画起始值应为当前横幅透明度
+            try:
+                self.fade_out.setStartValue(float(self.banner_opacity))
+            except Exception:
+                self.fade_out.setStartValue(1.0)
             self.fade_out.setEndValue(0.0)
             self.fade_out.setEasingCurve(QEasingCurve.Type.InOutQuad)
             self.fade_out.finished.connect(self._on_fade_out_finished)
@@ -539,17 +566,31 @@ class WarningBanner(QWidget):
                         # 更新背景矩形的画刷透明度
                         brush = item.brush()
                         color = brush.color()
-                        alpha_value = int(opacity * 255)
+                        # 将配置的 opacity 与基础 alpha 相乘更自然
+                        alpha_value = int(opacity * color.alpha())
                         color.setAlpha(alpha_value)
                         brush.setColor(color)
                         item.setBrush(brush)
                         self.scene.update()  # 强制更新场景
                         logger.debug("GPU渲染模式下横幅透明度已更新")
                         break
-                        
-                # 同时更新OpenGL视口的透明度
-                if self.graphics_view and hasattr(self.graphics_view, 'viewport') and self.graphics_view.viewport():
-                    self.graphics_view.viewport().setWindowOpacity(opacity)
+                # 为场景中的其他项（例如条纹、分割线、文本代理等）设置整体透明度
+                for it in self.scene.items():
+                    try:
+                        # 跳过背景矩形（已处理）
+                        if isinstance(it, QGraphicsRectItem) and it.zValue() == -1:
+                            continue
+                        # 为其他可见项设置 item.opacity，这将乘以画刷/像素本身的 alpha
+                        it.setOpacity(float(opacity))
+                    except Exception:
+                        pass
+
+                # 也尝试将窗口整体透明度与配置透明度匹配（让动画与配置一致）
+                try:
+                    self.setWindowOpacity(float(opacity))
+                except Exception:
+                    # 如果不支持则忽略
+                    pass
         except Exception as e:
             logger.error(f"更新警告横幅透明度时出错: {e}")
         
@@ -567,6 +608,19 @@ class WarningBanner(QWidget):
             
             # 如果透明度发生变化，则更新透明度
             if old_opacity != new_opacity:
+                # 更新动画目标值以匹配新的 banner_opacity
+                self.banner_opacity = float(new_opacity)
+                try:
+                    if self.fade_in:
+                        self.fade_in.setEndValue(self.banner_opacity)
+                except Exception:
+                    pass
+                try:
+                    if self.fade_out:
+                        self.fade_out.setStartValue(self.banner_opacity)
+                except Exception:
+                    pass
+
                 self.update_opacity(new_opacity)
                 
             logger.debug("警告横幅配置更新完成")
