@@ -357,11 +357,28 @@ class WarningBanner(QWidget):
                 self.text_animation.setEasingCurve(QEasingCurve.Type.Linear)
                 self.text_animation.finished.connect(self._on_text_animation_finished)
             else:
-                # 不滚动时不需要设置动画
-                # 设置文本居中显示
-                self.text_proxy.setPos((screen_width - self.text_width) // 2, vertical_center_position)
-                if self.message_text:
-                    self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    # 不滚动时不需要设置动画
+                    # 设置文本居中显示：在 GPU 模式下将 QLabel 宽度设置为显示区宽度，并把代理放到 left_margin
+                    left_margin = int(self.config.get("left_margin", 93) or 93)
+                    right_margin = int(self.config.get("right_margin", 93) or 93)
+                    display_width = screen_width - left_margin - right_margin
+                    if display_width <= 0:
+                        display_width = screen_width
+
+                    # 设置 QLabel 的尺寸为显示区宽度，让 QLabel 自行居中文本内容
+                    if self.message_text:
+                        try:
+                            self.message_text.setGeometry(0, 0, display_width, self.text_height)
+                            self.message_text.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                        except Exception:
+                            pass
+
+                    # 将代理放在 left_margin 处（代理宽度与 QLabel 保持一致），实现视觉居中
+                    if self.text_proxy:
+                        try:
+                            self.text_proxy.setPos(left_margin, vertical_center_position)
+                        except Exception:
+                            pass
         
     def _update_stripe_animation(self) -> None:
         """更新条纹动画"""
