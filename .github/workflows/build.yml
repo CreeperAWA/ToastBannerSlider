@@ -1,4 +1,4 @@
-name: Build ToastBannerSlider Executable
+name: Build and Sign ToastBannerSlider Executable
 
 on:
   workflow_dispatch:
@@ -21,9 +21,10 @@ on:
   release:
     types: [published]
 
-# 添加必要的权限声明
+# 添加必要的权限声明 - 签名需要id-token权限
 permissions:
   contents: write
+  id-token: write  # 必须的权限，用于sigstore keyless签名
 
 jobs:
   build-amd64:
@@ -77,18 +78,48 @@ jobs:
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-amd64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
+      - name: Install cosign for Windows
+        run: |
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          ren cosign-windows-amd64.exe cosign.exe
+          .\cosign.exe version
+          
+      - name: Sign executable with sigstore (Keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"  # 启用keyless模式
+        run: |
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-amd64.exe.sig" "ToastBannerSlider-amd64.exe"
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-amd64.exe.pem" --output-certificate "ToastBannerSlider-amd64.exe.pem" "ToastBannerSlider-amd64.exe"
+          
+      - name: Verify signature (optional but recommended)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          .\cosign.exe verify-blob --signature "ToastBannerSlider-amd64.exe.sig" --certificate "ToastBannerSlider-amd64.exe.pem" "ToastBannerSlider-amd64.exe"
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: ToastBannerSlider-amd64-executable
-          path: ToastBannerSlider-amd64.exe
+          name: ToastBannerSlider-amd64-signed
+          path: |
+            ToastBannerSlider-amd64.exe
+            ToastBannerSlider-amd64.exe.sig
+            ToastBannerSlider-amd64.exe.pem
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ToastBannerSlider-amd64.exe
+          files: |
+            ToastBannerSlider-amd64.exe
+            ToastBannerSlider-amd64.exe.sig
+            ToastBannerSlider-amd64.exe.pem
+          body: |
+            ✅ **已使用 Sigstore 自动签名**
+            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-amd64.exe.sig --certificate ToastBannerSlider-amd64.exe.pem ToastBannerSlider-amd64.exe`
+            - 签名记录在 Rekor 透明日志中，可公开验证
+            - 完全免费，由 sigstore 提供
 
   build-arm64:
     if: github.event.inputs.build_arm64 == 'true' || github.event_name == 'release'
@@ -141,18 +172,48 @@ jobs:
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-arm64.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
+      - name: Install cosign for Windows
+        run: |
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          ren cosign-windows-amd64.exe cosign.exe
+          .\cosign.exe version
+          
+      - name: Sign executable with sigstore (Keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-arm64.exe.sig" "ToastBannerSlider-arm64.exe"
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-arm64.exe.pem" --output-certificate "ToastBannerSlider-arm64.exe.pem" "ToastBannerSlider-arm64.exe"
+          
+      - name: Verify signature (optional but recommended)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          .\cosign.exe verify-blob --signature "ToastBannerSlider-arm64.exe.sig" --certificate "ToastBannerSlider-arm64.exe.pem" "ToastBannerSlider-arm64.exe"
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: ToastBannerSlider-arm64-executable
-          path: ToastBannerSlider-arm64.exe
+          name: ToastBannerSlider-arm64-signed
+          path: |
+            ToastBannerSlider-arm64.exe
+            ToastBannerSlider-arm64.exe.sig
+            ToastBannerSlider-arm64.exe.pem
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ToastBannerSlider-arm64.exe
+          files: |
+            ToastBannerSlider-arm64.exe
+            ToastBannerSlider-arm64.exe.sig
+            ToastBannerSlider-arm64.exe.pem
+          body: |
+            ✅ **已使用 Sigstore 自动签名**
+            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-arm64.exe.sig --certificate ToastBannerSlider-arm64.exe.pem ToastBannerSlider-arm64.exe`
+            - 签名记录在 Rekor 透明日志中，可公开验证
+            - 完全免费，由 sigstore 提供
 
   build-x86:
     if: github.event.inputs.build_x86 == 'true' || github.event_name == 'release'
@@ -205,15 +266,45 @@ jobs:
         run: |
           python -m nuitka --onefile --windows-console-mode="disable" --enable-plugins="pyside6" --include-qt-plugins="qml" --assume-yes-for-downloads --windows-icon-from-ico="notification_icon.ico" --product-name="ToastBannerSlider" --product-version="${{ env.RELEASE_VERSION }}" --file-description="ToastBannerSlider" --copyright="© 2025 ${{ env.AUTHOR }}." --output-filename="ToastBannerSlider-x86.exe" --include-data-file=notification_icon.png=notification_icon.png --include-data-file=notification_icon.ico=notification_icon.ico --include-data-file=public.pem=public.pem --include-data-file=NoticeSlider.qml=NoticeSlider.qml --include-data-file=WarningBanner.qml=WarningBanner.qml main.py
       
+      - name: Install cosign for Windows
+        run: |
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          ren cosign-windows-amd64.exe cosign.exe
+          .\cosign.exe version
+          
+      - name: Sign executable with sigstore (Keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-x86.exe.sig" "ToastBannerSlider-x86.exe"
+          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-x86.exe.pem" --output-certificate "ToastBannerSlider-x86.exe.pem" "ToastBannerSlider-x86.exe"
+          
+      - name: Verify signature (optional but recommended)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          .\cosign.exe verify-blob --signature "ToastBannerSlider-x86.exe.sig" --certificate "ToastBannerSlider-x86.exe.pem" "ToastBannerSlider-x86.exe"
+      
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: ToastBannerSlider-x86-executable
-          path: ToastBannerSlider-x86.exe
+          name: ToastBannerSlider-x86-signed
+          path: |
+            ToastBannerSlider-x86.exe
+            ToastBannerSlider-x86.exe.sig
+            ToastBannerSlider-x86.exe.pem
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ToastBannerSlider-x86.exe
+          files: |
+            ToastBannerSlider-x86.exe
+            ToastBannerSlider-x86.exe.sig
+            ToastBannerSlider-x86.exe.pem
+          body: |
+            ✅ **已使用 Sigstore 自动签名**
+            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-x86.exe.sig --certificate ToastBannerSlider-x86.exe.pem ToastBannerSlider-x86.exe`
+            - 签名记录在 Rekor 透明日志中，可公开验证
+            - 完全免费，由 sigstore 提供
