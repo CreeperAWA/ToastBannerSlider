@@ -90,14 +90,7 @@ jobs:
         run: |
           # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
           .\cosign.exe sign-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" --yes "ToastBannerSlider-amd64.exe"
-          
-      - name: Verify signature (optional but recommended)
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          # 使用 bundle 文件进行验证
-          .\cosign.exe verify-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" "ToastBannerSlider-amd64.exe"
-      
+
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
@@ -114,11 +107,6 @@ jobs:
           files: |
             ToastBannerSlider-amd64.exe
             ToastBannerSlider-amd64.exe.sigstore.json
-          body: |
-            ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-amd64.exe.sigstore.json ToastBannerSlider-amd64.exe`
-            - 签名记录在 Rekor 透明日志中，可公开验证
-            - 完全免费，由 sigstore 提供
 
   build-arm64:
     if: github.event.inputs.build_arm64 == 'true' || github.event_name == 'release'
@@ -184,12 +172,6 @@ jobs:
           # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
           .\cosign.exe sign-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" --yes "ToastBannerSlider-arm64.exe"
           
-      - name: Verify signature (optional but recommended)
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          # 使用 bundle 文件进行验证
-          .\cosign.exe verify-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" "ToastBannerSlider-arm64.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -207,11 +189,6 @@ jobs:
           files: |
             ToastBannerSlider-arm64.exe
             ToastBannerSlider-arm64.exe.sigstore.json
-          body: |
-            ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-arm64.exe.sigstore.json ToastBannerSlider-arm64.exe`
-            - 签名记录在 Rekor 透明日志中，可公开验证
-            - 完全免费，由 sigstore 提供
 
   build-x86:
     if: github.event.inputs.build_x86 == 'true' || github.event_name == 'release'
@@ -276,13 +253,6 @@ jobs:
         run: |
           # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
           .\cosign.exe sign-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" --yes "ToastBannerSlider-x86.exe"
-          
-      - name: Verify signature (optional but recommended)
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-        run: |
-          # 使用 bundle 文件进行验证
-          .\cosign.exe verify-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" "ToastBannerSlider-x86.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -300,8 +270,3 @@ jobs:
           files: |
             ToastBannerSlider-x86.exe
             ToastBannerSlider-x86.exe.sigstore.json
-          body: |
-            ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-x86.exe.sigstore.json ToastBannerSlider-x86.exe`
-            - 签名记录在 Rekor 透明日志中，可公开验证
-            - 完全免费，由 sigstore 提供
