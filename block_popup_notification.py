@@ -5,8 +5,6 @@ import psutil
 import threading
 import time
 import win32con
-import sys
-import os
 import traceback
 from logger_config import logger
 import threading

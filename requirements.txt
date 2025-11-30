@@ -4,3 +4,4 @@ cryptography==46.0.2
 WMI==1.5.1
 regex==2025.11.3
 Nuitka==2.7.14
+psutil==7.1.3
