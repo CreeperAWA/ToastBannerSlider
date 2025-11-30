@@ -88,8 +88,8 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"  # 启用keyless模式
         run: |
-          # 使用 bundle 模式进行签名（新版本 cosign 要求）
-          .\cosign.exe sign-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" "ToastBannerSlider-amd64.exe"
+          # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" --yes "ToastBannerSlider-amd64.exe"
           
       - name: Verify signature (optional but recommended)
         env:
@@ -181,8 +181,8 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          # 使用 bundle 模式进行签名
-          .\cosign.exe sign-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" "ToastBannerSlider-arm64.exe"
+          # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" --yes "ToastBannerSlider-arm64.exe"
           
       - name: Verify signature (optional but recommended)
         env:
@@ -274,8 +274,8 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          # 使用 bundle 模式进行签名
-          .\cosign.exe sign-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" "ToastBannerSlider-x86.exe"
+          # 使用 bundle 模式进行签名，添加 --yes 参数自动同意条款
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" --yes "ToastBannerSlider-x86.exe"
           
       - name: Verify signature (optional but recommended)
         env:
