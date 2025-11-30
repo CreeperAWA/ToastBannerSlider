@@ -80,7 +80,7 @@ jobs:
       
       - name: Install cosign for Windows
         run: |
-          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe  
           ren cosign-windows-amd64.exe cosign.exe
           .\cosign.exe version
           
@@ -88,14 +88,15 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"  # 启用keyless模式
         run: |
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-amd64.exe.sig" "ToastBannerSlider-amd64.exe"
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-amd64.exe.pem" --output-certificate "ToastBannerSlider-amd64.exe.pem" "ToastBannerSlider-amd64.exe"
+          # 使用 bundle 模式进行签名（新版本 cosign 要求）
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" "ToastBannerSlider-amd64.exe"
           
       - name: Verify signature (optional but recommended)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          .\cosign.exe verify-blob --signature "ToastBannerSlider-amd64.exe.sig" --certificate "ToastBannerSlider-amd64.exe.pem" "ToastBannerSlider-amd64.exe"
+          # 使用 bundle 文件进行验证
+          .\cosign.exe verify-blob --bundle "ToastBannerSlider-amd64.exe.sigstore.json" "ToastBannerSlider-amd64.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -104,8 +105,7 @@ jobs:
           name: ToastBannerSlider-amd64-signed
           path: |
             ToastBannerSlider-amd64.exe
-            ToastBannerSlider-amd64.exe.sig
-            ToastBannerSlider-amd64.exe.pem
+            ToastBannerSlider-amd64.exe.sigstore.json
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
@@ -113,11 +113,10 @@ jobs:
         with:
           files: |
             ToastBannerSlider-amd64.exe
-            ToastBannerSlider-amd64.exe.sig
-            ToastBannerSlider-amd64.exe.pem
+            ToastBannerSlider-amd64.exe.sigstore.json
           body: |
             ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-amd64.exe.sig --certificate ToastBannerSlider-amd64.exe.pem ToastBannerSlider-amd64.exe`
+            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-amd64.exe.sigstore.json ToastBannerSlider-amd64.exe`
             - 签名记录在 Rekor 透明日志中，可公开验证
             - 完全免费，由 sigstore 提供
 
@@ -174,7 +173,7 @@ jobs:
       
       - name: Install cosign for Windows
         run: |
-          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe  
           ren cosign-windows-amd64.exe cosign.exe
           .\cosign.exe version
           
@@ -182,14 +181,15 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-arm64.exe.sig" "ToastBannerSlider-arm64.exe"
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-arm64.exe.pem" --output-certificate "ToastBannerSlider-arm64.exe.pem" "ToastBannerSlider-arm64.exe"
+          # 使用 bundle 模式进行签名
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" "ToastBannerSlider-arm64.exe"
           
       - name: Verify signature (optional but recommended)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          .\cosign.exe verify-blob --signature "ToastBannerSlider-arm64.exe.sig" --certificate "ToastBannerSlider-arm64.exe.pem" "ToastBannerSlider-arm64.exe"
+          # 使用 bundle 文件进行验证
+          .\cosign.exe verify-blob --bundle "ToastBannerSlider-arm64.exe.sigstore.json" "ToastBannerSlider-arm64.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -198,8 +198,7 @@ jobs:
           name: ToastBannerSlider-arm64-signed
           path: |
             ToastBannerSlider-arm64.exe
-            ToastBannerSlider-arm64.exe.sig
-            ToastBannerSlider-arm64.exe.pem
+            ToastBannerSlider-arm64.exe.sigstore.json
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
@@ -207,11 +206,10 @@ jobs:
         with:
           files: |
             ToastBannerSlider-arm64.exe
-            ToastBannerSlider-arm64.exe.sig
-            ToastBannerSlider-arm64.exe.pem
+            ToastBannerSlider-arm64.exe.sigstore.json
           body: |
             ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-arm64.exe.sig --certificate ToastBannerSlider-arm64.exe.pem ToastBannerSlider-arm64.exe`
+            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-arm64.exe.sigstore.json ToastBannerSlider-arm64.exe`
             - 签名记录在 Rekor 透明日志中，可公开验证
             - 完全免费，由 sigstore 提供
 
@@ -268,7 +266,7 @@ jobs:
       
       - name: Install cosign for Windows
         run: |
-          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe
+          curl -LO https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe  
           ren cosign-windows-amd64.exe cosign.exe
           .\cosign.exe version
           
@@ -276,14 +274,15 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-x86.exe.sig" "ToastBannerSlider-x86.exe"
-          .\cosign.exe sign-blob --output-signature "ToastBannerSlider-x86.exe.pem" --output-certificate "ToastBannerSlider-x86.exe.pem" "ToastBannerSlider-x86.exe"
+          # 使用 bundle 模式进行签名
+          .\cosign.exe sign-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" "ToastBannerSlider-x86.exe"
           
       - name: Verify signature (optional but recommended)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          .\cosign.exe verify-blob --signature "ToastBannerSlider-x86.exe.sig" --certificate "ToastBannerSlider-x86.exe.pem" "ToastBannerSlider-x86.exe"
+          # 使用 bundle 文件进行验证
+          .\cosign.exe verify-blob --bundle "ToastBannerSlider-x86.exe.sigstore.json" "ToastBannerSlider-x86.exe"
       
       - name: Upload artifact (workflow dispatch)
         if: github.event_name == 'workflow_dispatch'
@@ -292,8 +291,7 @@ jobs:
           name: ToastBannerSlider-x86-signed
           path: |
             ToastBannerSlider-x86.exe
-            ToastBannerSlider-x86.exe.sig
-            ToastBannerSlider-x86.exe.pem
+            ToastBannerSlider-x86.exe.sigstore.json
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
@@ -301,10 +299,9 @@ jobs:
         with:
           files: |
             ToastBannerSlider-x86.exe
-            ToastBannerSlider-x86.exe.sig
-            ToastBannerSlider-x86.exe.pem
+            ToastBannerSlider-x86.exe.sigstore.json
           body: |
             ✅ **已使用 Sigstore 自动签名**
-            - 签名验证: `cosign verify-blob --signature ToastBannerSlider-x86.exe.sig --certificate ToastBannerSlider-x86.exe.pem ToastBannerSlider-x86.exe`
+            - 签名验证: `cosign verify-blob --bundle ToastBannerSlider-x86.exe.sigstore.json ToastBannerSlider-x86.exe`
             - 签名记录在 Rekor 透明日志中，可公开验证
             - 完全免费，由 sigstore 提供
