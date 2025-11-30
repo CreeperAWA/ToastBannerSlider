@@ -7,6 +7,7 @@
 import sys
 import time
 import os
+import threading
 from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 from PySide6.QtCore import QTimer, QObject, Qt
 from notice_slider import NotificationWindow
@@ -246,6 +247,10 @@ class ToastBannerManager(QObject):
         self.message_history: List[Tuple[str, float]] = []
         self.has_notifications: bool = False
         self.is_initialized: bool = False
+        # 希沃拦截器相关
+        self._seewo_thread: Optional[threading.Thread] = None
+        self._seewo_blocker_module = None
+        self._seewo_enabled: bool = False
         
         try:
             # 初始化UI
@@ -291,6 +296,13 @@ class ToastBannerManager(QObject):
         self.config_timer = QTimer()
         self.config_timer.timeout.connect(self.config_watcher.check_config_change)
         self.config_timer.start(1000)
+
+        # 根据当前配置决定是否启动希沃拦截器
+        try:
+            if self.config.get("accessibility_block_seewo_popup", False):
+                self.start_seewo_blocker()
+        except Exception:
+            pass
         
         # 创建系统托盘管理器
         self.tray_manager = TrayManager(
@@ -309,6 +321,54 @@ class ToastBannerManager(QObject):
         QTimer.singleShot(1000, self._delayed_create_tray_icon)
         
         logger.info("主程序UI初始化完成")
+        
+    def start_seewo_blocker(self) -> None:
+        """启动希沃弹窗拦截器后台线程（幂等）。"""
+        if getattr(self, '_seewo_enabled', False):
+            return
+        try:
+            module = __import__('block_popup_notification')
+            # 如果模块提供 stop_event，确保清除旧的停止请求
+            try:
+                if hasattr(module, 'stop_event') and getattr(module, 'stop_event') is not None:
+                    module.stop_event.clear()
+            except Exception:
+                pass
+
+            t = threading.Thread(target=module.interceptor_main, daemon=True)
+            t.start()
+            self._seewo_thread = t
+            self._seewo_blocker_module = module
+            self._seewo_enabled = True
+            logger.info("已启用：拦截希沃管家弹窗拦截提示（后台线程）")
+        except Exception as e:
+            logger.error(f"启动希沃管家弹窗拦截器时出错: {e}", exc_info=True)
+
+    def stop_seewo_blocker(self) -> None:
+        """停止希沃弹窗拦截器后台线程（幂等）。"""
+        if not getattr(self, '_seewo_enabled', False):
+            return
+        try:
+            mod = self._seewo_blocker_module
+            if mod and hasattr(mod, 'stop'):
+                try:
+                    mod.stop()
+                except Exception as e:
+                    logger.debug(f"调用拦截器 stop() 出错: {e}")
+
+            # 等待线程结束
+            if self._seewo_thread:
+                try:
+                    self._seewo_thread.join(timeout=2.0)
+                except Exception:
+                    pass
+
+            self._seewo_thread = None
+            self._seewo_blocker_module = None
+            self._seewo_enabled = False
+            logger.info("已停止：希沃管家弹窗拦截器")
+        except Exception as e:
+            logger.error(f"停止希沃管家拦截器时出错: {e}", exc_info=True)
         
     def show_notification(self, message: str, skip_duplicate_check: bool = False, skip_restrictions: bool = False, max_scrolls: Optional[int] = None) -> None:
         """显示通知横幅
@@ -532,6 +592,16 @@ class ToastBannerManager(QObject):
             # 更新托盘图标提示文本
             if self.tray_manager:
                 self.tray_manager.update_config()
+
+            # 热重载：根据配置开启或停止希沃拦截器
+            try:
+                enabled = bool(self.config.get("accessibility_block_seewo_popup", False))
+                if enabled and not self._seewo_enabled:
+                    self.start_seewo_blocker()
+                elif not enabled and self._seewo_enabled:
+                    self.stop_seewo_blocker()
+            except Exception as e:
+                logger.error(f"处理希沃拦截器热重载时出错: {e}")
                         
             logger.info("配置更新完成")
         except Exception as e:
@@ -583,6 +653,11 @@ class ToastBannerManager(QObject):
         
         # 退出应用程序
         logger.debug("计划退出应用程序")
+        # 停止希沃拦截器（如果在运行）
+        try:
+            self.stop_seewo_blocker()
+        except Exception:
+            pass
         QTimer.singleShot(100, self._quit_application)
         
     def _quit_application(self) -> None:

@@ -464,6 +464,9 @@ class ConfigDialogLogic:
                 "rendering_backend": self.dialog.rendering_backend_combo.currentData(),
                 "enable_qt_quick": self.dialog.enable_qt_quick_checkbox.isChecked(),
 
+                # 辅助功能设置
+                "accessibility_block_seewo_popup": getattr(self.dialog, 'seewo_block_checkbox', None) and self.dialog.seewo_block_checkbox.isChecked(),
+
                 # 图标设置
                 "custom_icon": self.dialog.icon_edit.text() or None,
 
@@ -654,6 +657,13 @@ class ConfigDialogLogic:
             self.dialog.dnd_checkbox.setChecked(bool(self.config.get("do_not_disturb", False)))
             qt_quick_enabled = bool(self.config.get("enable_qt_quick", False))
             self.dialog.enable_qt_quick_checkbox.setChecked(qt_quick_enabled)  # 添加 Qt Quick 选项
+
+            # 辅助功能
+            try:
+                self.dialog.seewo_block_checkbox.setChecked(bool(self.config.get("accessibility_block_seewo_popup", False)))
+            except Exception:
+                # 如果控件不存在或发生错误，静默忽略
+                pass
 
             current_backend = self.config.get("rendering_backend", "default")
             backend_index = self.dialog.rendering_backend_combo.findData(current_backend)

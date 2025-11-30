@@ -37,6 +37,10 @@ DEFAULT_CONFIG: Dict[str, Union[str, float, int, bool, None]] = {
     "banner_style": "default",       # 横幅样式: default(默认), warning(警告)
     "enable_qt_quick": False,        # 启用 Qt Quick (QML 渲染)
     "rendering_backend": "default"   # 渲染后端: default(默认), opengl(OpenGL), opengles(OpenGL ES), vulkan(Vulkan), direct3d(Direct3D)
+    ,
+    # 辅助功能设置组
+    # 是否启用拦截希沃管家弹窗拦截提示（布尔值）
+    "accessibility_block_seewo_popup": False
 }
 
 

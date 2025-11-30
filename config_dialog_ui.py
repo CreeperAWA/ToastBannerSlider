@@ -57,6 +57,9 @@ class ConfigDialogUI:
             # 高级设置组
             self._create_advanced_settings_group(scroll_layout)
 
+            # 辅助功能设置组
+            self._create_accessibility_group(scroll_layout)
+
             # 图标设置组
             self._create_icon_settings_group(scroll_layout)
 
@@ -312,6 +315,25 @@ class ConfigDialogUI:
             logger.debug("图标设置组创建完成")
         except Exception as e:
             logger.error(f"创建图标设置组时出错: {e}", exc_info=True)
+
+    def _create_accessibility_group(self, parent_layout: QVBoxLayout) -> None:
+        """创建辅助功能设置组"""
+        try:
+            logger.debug("创建辅助功能设置组")
+
+            access_group = QGroupBox("辅助功能")
+            access_layout = QFormLayout(access_group)
+
+            # 拦截希沃管家弹窗拦截提示
+            self.dialog.seewo_block_checkbox = QCheckBox("拦截希沃管家弹窗拦截提示")
+            self.dialog.seewo_block_checkbox.setChecked(bool(self.config.get("accessibility_block_seewo_popup", False)))
+            access_layout.addRow(self.dialog.seewo_block_checkbox)
+
+            parent_layout.addWidget(access_group)
+
+            logger.debug("辅助功能设置组创建完成")
+        except Exception as e:
+            logger.error(f"创建辅助功能设置组时出错: {e}", exc_info=True)
 
     def apply_banner_style_visibility(self, style_data: str) -> None:
         """根据横幅样式数据应用显示/隐藏逻辑"""
