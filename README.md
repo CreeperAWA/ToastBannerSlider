@@ -182,18 +182,18 @@ ToastBannerSlider 使用基于硬件绑定的许可证系统来验证软件的�
     - 统一管理应用程序的日志配置
     - 提供不同级别的日志输出
 
-13. **QML通知横幅** ([notice_slider_qml.py](./notice_slider_qml.py)):
+13. **QML 通知横幅** ([notice_slider_qml.py](./notice_slider_qml.py)):
     - 默认样式横幅的 QML 实现版本
     - 提供更流畅的动画效果
 
-14. **QML警告横幅** ([warning_banner_qml.py](./warning_banner_qml.py)):
+14. **QML 警告横幅** ([warning_banner_qml.py](./warning_banner_qml.py)):
     - 警告样式横幅的 QML 实现版本
     - 用于显示重要警告信息
 
-15. **CPU渲染警告横幅** ([warning_banner_cpu.py](./warning_banner_cpu.py)):
+15. **CPU 渲染警告横幅** ([warning_banner_cpu.py](./warning_banner_cpu.py)):
     - 警告样式横幅的 CPU 渲染版本
 
-16. **GPU渲染警告横幅** ([warning_banner_gpu.py](./warning_banner_gpu.py)):
+16. **GPU 渲染警告横幅** ([warning_banner_gpu.py](./warning_banner_gpu.py)):
     - 警告样式横幅的 GPU 渲染版本
 
 17. **配置对话框逻辑** ([config_dialog_logic.py](./config_dialog_logic.py)):
@@ -203,7 +203,10 @@ ToastBannerSlider 使用基于硬件绑定的许可证系统来验证软件的�
     - 提供关键字规则编辑界面
 
 19. **图标提供者** ([icon_provider.py](./icon_provider.py)):
-    - 为QML界面提供图标资源加载功能
+    - 为 QML 界面提供图标资源加载功能
+
+20. **希沃管家弹窗拦截提示拦截** ([block_popup_notification.py](./block_popup_notification.py)):
+    - 拦截希沃管家恶心无用的弹窗拦截提示（这个玩意才是最该被拦截的骚扰弹窗）
 
 ### 工作流程
 
