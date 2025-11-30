@@ -146,7 +146,7 @@ class ConfigDialog(QDialog):
                 item.setData(Qt.ItemDataRole.UserRole, typed_rule_data)
                 self.keyword_rules_list.addItem(item)
 
-            logger.debug(f"已加载 {self.keyword_rules_list.count()} 条规则")
+            logger.info(f"已加载 {self.keyword_rules_list.count()} 条规则")
         except Exception as e:
             logger.error(f"加载关键字替换规则时出错: {e}", exc_info=True)
 
@@ -163,7 +163,7 @@ class ConfigDialog(QDialog):
                 item = QListWidgetItem(item_text)
                 item.setData(Qt.ItemDataRole.UserRole, rule_data)
                 self.keyword_rules_list.addItem(item)
-                logger.debug(f"已添加新规则: {item_text}")
+                logger.info(f"已添加新规则: {item_text}")
         except Exception as e:
             logger.error(f"添加新规则时出错: {e}", exc_info=True)
 
